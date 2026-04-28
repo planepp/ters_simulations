@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+import numpy as np
+import re
+import matplotlib.pyplot as plt
+import argparse
+import math
+
+# === Arguments ===
+parser = argparse.ArgumentParser(description="Plot last SCF convergence table from AIMS output.")
+parser.add_argument("last_x", nargs="?", type=int, default=None, help="Number of last SCF iterations to plot")
+args = parser.parse_args()
+
+last_x = args.last_x
+
+# === Read aims.out ===
+with open("aims.out", "r") as f:
+    text = f.read()
+
+# Read density accuracy criteria
+match = re.search(r"sc_accuracy_rho\s*=\s*([-\d.Ee]+)", text)
+if match:
+    sc_accuracy_rho = float(match.group(1))
+    print(f"SCF convergence criteria (sc_accuracy_rho) = {sc_accuracy_rho:.3e}")
+else:
+    raise ValueError("No sc_accuracy_rho line found in the text.")
+
+# Read SCF table
+pattern = re.compile(r"(Convergence:.*\n(?:\s*SCF\s+\d+.*\n?)+)", re.MULTILINE)
+tables = pattern.findall(text)
+if not tables:
+    raise ValueError("No SCF convergence tables found in the file.")
+
+last_table = tables[-1]
+
+# Parse rows
+rows = []
+spin_flag = False
+
+for line in last_table.strip().splitlines():
+    match = re.match(
+       r"\s*SCF\s+(\d+)\s*:\s*([-\d.E+]+)\s*\|\s*([-\d.E+\s]+)\|\s*([-\d.E+]+)\s*\|\s*([-\d.E+]+)\s*\|\s*([^\|]*)\|\s*([\d.]+)\s*s\s*\|\s*([\d.]+)\s*s",
+       line
+    )
+    if match:
+        scf = int(match.group(1))
+        q_app = float(match.group(2))
+        density_spin = match.group(3).split()
+
+        if len(density_spin) == 2:
+            density = float(density_spin[0])
+            spin = float(density_spin[1])
+            spin_flag = True
+        else:
+            density = float(density_spin[0])
+            spin = None
+
+        rows.append([scf, density, spin])
+
+# === Print parsed SCF table ===
+'''
+header = ["SCF", "density", "spin"]
+print("\n=== Last SCF table parsed ===")
+print("{:<4} {:>12} {:>12}".format(*header))
+for r in rows:
+    spin_val = f"{r[2]:.3e}" if r[2] is not None else "-"
+    print("{:<4} {:>12.6e} {:>12}".format(r[0], r[1], spin_val))
+'''
+
+# === Extract lists ===
+scf_list = [r[0] for r in rows]
+density_list = [r[1] for r in rows]
+if spin_flag:
+    spin_list = [r[2] for r in rows]
+
+# === Slice last_steps if requested ===
+if last_x is not None:
+    scf_list = scf_list[-last_x:]
+    density_list = density_list[-last_x:]
+    if spin_flag:
+        spin_list = spin_list[-last_x:]
+
+# === Plot ===
+plt.figure(figsize=(6, 6))
+plt.plot(scf_list, density_list, marker="o", label="density")
+#if spin_flag:
+#    plt.plot(scf_list, spin_list, marker="x", label="spin")
+
+y_line = sc_accuracy_rho
+plt.axhline(y=y_line, color='k', linestyle='--', label=f"Convergence condition")
+
+plt.xlabel("SCF iteration")
+plt.yscale("log")
+plt.ylabel("Density")
+plt.title("SCF Convergence Evolution")
+#plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+

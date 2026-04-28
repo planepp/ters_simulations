@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+import sys
+import shutil
+import numpy as np
+from ase.io import read, write
+
+if len(sys.argv) < 2:
+    print("Usage: python center_unconstrained.py geometry.in")
+    sys.exit(1)
+
+geom_file = sys.argv[1]
+#backup_file = geom_file + ".bak"
+
+# --- Step 1. Backup geometry ---
+#shutil.copy(geom_file, backup_file)
+
+# --- Step 2. Parse constrained vs unconstrained atoms ---
+with open(geom_file, "r") as f:
+    lines = f.readlines()
+
+new_lines = []
+symbols_constrained = []
+symbols_unconstrained = []
+constrained_indices = set()
+
+for i, line in enumerate(lines):
+    if "constrain_relaxation" in line.lower():
+        if new_lines:
+            prev_line = new_lines.pop()
+            if prev_line.strip().startswith("atom"):
+                symbol = prev_line.split()[4]
+                idx = len(new_lines)  # index in cleaned list corresponds to atom index
+                symbols_constrained.append(symbol)
+                constrained_indices.add(idx)
+        continue
+    new_lines.append(line)
+
+# Find unconstrained symbols
+for line in new_lines:
+    if line.strip().startswith("atom"):
+        symbol = line.split()[4]
+        if symbol not in symbols_unconstrained:
+            symbols_unconstrained.append(symbol)
+
+print("Unconstrained symbols:", symbols_unconstrained)
+print("Constrained symbols:", symbols_constrained)
+
+# --- Step 3. Read structure with ASE ---
+atoms = read(geom_file, format="aims")
+
+# --- Step 4. Identify unconstrained atom indices ---
+all_indices = set(range(len(atoms)))
+unconstrained_indices = sorted(list(all_indices - constrained_indices))
+unconstrained_atoms = atoms[unconstrained_indices]
+
+# --- Step 5. Compute COM of unconstrained atoms ---
+com = unconstrained_atoms.get_center_of_mass()
+print(f"\nOriginal COM (unconstrained atoms): {com}")
+
+# --- Step 6. Translate all atoms so that COM_xy → 0 ---
+atoms.translate([-com[0], -com[1], 0])
+
+# --- Step 7. Save result ---
+output_file = geom_file.replace(".in", "_centered.in")
+write(output_file, atoms, format="aims")
+
+# --- Step 8. Verify new COM ---
+new_com = atoms[unconstrained_indices].get_center_of_mass()
+print(f"New COM (unconstrained atoms): {new_com}")
+
+if not np.allclose(new_com[:2], [0, 0], atol=1e-6):
+    print(f"⚠️  WARNING: molecule COM may not be at origin in xy! Offset = {new_com[:2]}")
+else:
+    print("✅ COM successfully centered in xy.")
+
