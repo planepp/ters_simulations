@@ -2,7 +2,8 @@
 import sys, os, glob
 
 # --- defaults ---
-base_dir = "/projappl/project_2001912/species_defaults"
+# base_dir = "/home/planelp1/species_defaults" # Triton
+base_dir = "/projappl/project_2001912/species_defaults" # CSC
 default_level = "light"
 
 # --- optional level ---

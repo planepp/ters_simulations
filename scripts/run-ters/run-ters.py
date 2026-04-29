@@ -13,19 +13,23 @@ from prepare_ters import (
 )
 
 ### Set up initial TERS object, fill with required data                     !!!
+storage_dir = Path('/home/planelp1/') # Triton
+# storage_dir = Path('/projappl/project_2001912') # CSC
+
+
 ters = FiniteFieldTERS(
 hessian = h,
 modes = None,
 masses = masses,
 dq = 5e-3,
 efield = -1e-1,
-storage_dir = Path('/home/planelp1/'),
-fn_control_template = Path('ters_control_template.in'),
+storage_dir = storage_dir,
+fn_control_template = Path('control.in'),
 species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
 fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
-fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
+#fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
 fn_geometry = Path(geo_unconstrained),
 )
 

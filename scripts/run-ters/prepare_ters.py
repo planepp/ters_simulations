@@ -10,6 +10,9 @@ import shutil
 sys.path.append(os.path.expanduser("~/.local/bin"))
 from finite_field_ters import FiniteFieldTERS
 
+species_dir = "/home/planelp1/species_defaults/light/" # Triton
+# species_dir = "/projappl/project_2001912/species_defaults/light/" # CSC
+
 
 def find_species_file(symbol, species_dir):
     for root, _, files in os.walk(species_dir):
@@ -64,7 +67,6 @@ print("Constrained symbols:", set(symbols_constrained))
 mass_dict = {}
 masses = []
 # masses are read from species_defaults                                     !!!
-species_dir = "/projappl/project_2001912/species_defaults/light/"
 for symbol in symbols_unconstrained:
     file_path = find_species_file(symbol, species_dir)
     with open(file_path, "r") as elem_file:
@@ -83,7 +85,7 @@ print("Unconstrained atoms masses: ", mass_dict)
 # This will fail if one of the unconstrained molecule atoms is also constrained in the slab!!!
 unconstrained_atoms = read(geo_unconstrained)
 com_unconstrained = unconstrained_atoms.get_center_of_mass()
-if not np.allclose(com_unconstrained, [0, 0, 0], atol=1e-6):
+if not np.allclose(com_unconstrained, [0, 0, 0], atol=1e-3):
     print(f"WARNING: molecule COM may not at origin! Offset = {com_unconstrained}")
 
     atoms = read('geometry.in')
@@ -102,4 +104,3 @@ __all__ = [
     'species_dir', 'symbols_constrained', 'symbols_unconstrained',
     'find_species_file'
 ]
-
