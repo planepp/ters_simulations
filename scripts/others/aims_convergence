@@ -5,19 +5,11 @@ import matplotlib.pyplot as plt
 import argparse
 import math
 
-# === Arguments ===
-parser = argparse.ArgumentParser(description="Plot last SCF convergence table from AIMS output.")
-parser.add_argument("last_x", nargs="?", type=int, default=None, help="Number of last SCF iterations to plot")
-args = parser.parse_args()
-
-last_x = args.last_x
-
-# === Read aims.out ===
 with open("aims.out", "r") as f:
     text = f.read()
 
+### SCF
 # Read density accuracy criteria
-#match = re.search(r"sc_accuracy_rho\s*=\s*([-\d.Ee]+)", text)
 match = re.search(r"sc_accuracy_rho\s*(?:=\s*)?([-\d.Ee]+)", text)
 if match:
     sc_accuracy_rho = float(match.group(1))
@@ -57,30 +49,13 @@ for line in last_table.strip().splitlines():
 
         rows.append([scf, density, spin])
 
-# === Print parsed SCF table ===
-'''
-header = ["SCF", "density", "spin"]
-print("\n=== Last SCF table parsed ===")
-print("{:<4} {:>12} {:>12}".format(*header))
-for r in rows:
-    spin_val = f"{r[2]:.3e}" if r[2] is not None else "-"
-    print("{:<4} {:>12.6e} {:>12}".format(r[0], r[1], spin_val))
-'''
-
-# === Extract lists ===
+# Extract lists
 scf_list = [r[0] for r in rows]
 density_list = [r[1] for r in rows]
 if spin_flag:
     spin_list = [r[2] for r in rows]
 
-# === Slice last_steps if requested ===
-if last_x is not None:
-    scf_list = scf_list[-last_x:]
-    density_list = density_list[-last_x:]
-    if spin_flag:
-        spin_list = spin_list[-last_x:]
-
-# === Plot ===
+# Plot
 plt.figure(figsize=(6, 6))
 plt.plot(scf_list, density_list, marker="o", label="density")
 #if spin_flag:
@@ -93,8 +68,45 @@ plt.xlabel("SCF iteration")
 plt.yscale("log")
 plt.ylabel("Density")
 plt.title("SCF Convergence Evolution")
-#plt.legend()
 plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+### RELAXATION
+# Extract all "Maximum force component" lines
+pattern = re.compile(r"Maximum force component is\s+([-\d.E+]+)\s+eV/A", re.MULTILINE)
+forces = [float(x) for x in pattern.findall(text)]
+
+if not forces:
+    raise ValueError("No 'Maximum force component' entries found in the file.")
+
+# Read convergence criteria (threshold) from control.in
+try:
+    with open("control.in", "r") as f:
+        control_text = f.read()
+    match = re.search(r"relax_geometry\s+\S+\s+([-\d.]+)", control_text)
+    if match:
+        f_thresh = float(match.group(1))
+    else:
+        f_thresh = None
+except FileNotFoundError:
+    f_thresh = None
+
+#Create step indices
+steps = list(range(len(forces)))
+
+# Plot
+plt.figure(figsize=(6, 6))
+plt.plot(steps, forces, marker="o", label="Max force component")
+if f_thresh is not None:
+    plt.axhline(y=f_thresh, color="k", linestyle="--", label=f"Threshold = {f_thresh:.3e} eV/Å")
+plt.xlabel("Relaxation step")
+plt.ylabel("Max force (eV/Å)")
+plt.title("Geometry Relaxation Convergence Evolution")
+plt.yscale("log")
+plt.grid(True)
+#plt.legend()
 plt.tight_layout()
 plt.show()
 
