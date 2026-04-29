@@ -1,2 +1,0 @@
-sbatch: slurm_job_submit: Automatically setting partition to: batch-hsw,batch-bdw,batch-csl,batch-skl,batch-milan
-Submitted batch job 17529655
