@@ -1,25 +1,17 @@
+from pathlib import Path
+import argparse
 import numpy as np
+import ase.io
+import sys
+import os
+sys.path.append(os.path.expanduser("~/.local/bin"))
+import finite_field_ters as ffters
+import ast
+from scipy.ndimage import rotate
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-v0_8-darkgrid')
-import argparse
-from scipy.ndimage import rotate
-from pathlib import Path
-import ase.io
-import ast
 from ase.data.colors import jmol_colors
 from ase.data import covalent_radii
-
-def parse_modes(s):
-    """Parse mode argument: single number, comma-separated list, or range x-y."""
-    modes = []
-    for part in s.split(","):
-        part = part.strip()
-        if "-" in part:
-            start, end = map(int, part.split("-"))
-            modes.extend(range(start, end + 1))
-        else:
-            modes.append(int(part))
-    return modes
 
 def read_and_sum_intensities(files):
     if len(files) == 0:
@@ -39,24 +31,9 @@ def read_and_sum_intensities(files):
 
 parser = argparse.ArgumentParser(description="Calculate and plot a 2D TERS image")
 parser.add_argument("xyzfile", type=str, help="Path to the xyz file with all the normal frequencies")
-parser.add_argument(
-    "mode",
-    type=str,
-    default=None,
-    help="Mode index(es) to process: single int, comma-separated list, or range (e.g., '7-31' or '7,17,23')"
-)
-parser.add_argument(
-    "--wth",
-    type=float,
-    default=0,
-    help="Width in 1/cm over which the nearby modes should be found and summed over."
-)
-parser.add_argument(
-    "--rot",
-    type=float,
-    default=0,
-    help="Angle by which the image should be rotated."
-)
+parser.add_argument("mode", type=str, default=None, help="Mode index to process: single integer")
+parser.add_argument("--wth", type=float, default=0, help="Width in 1/cm over which the nearby modes should be found and summed over.")
+parser.add_argument("--rot", type=float, default=0, help="Angle by which the image should be rotated.")
 args = parser.parse_args()
 
 
@@ -70,7 +47,7 @@ with control_file.open() as f:
             tip_height = float(line.split()[-1])
 print(f"Tip-sample distance = {tip_height} Å")
 
-runters_file = Path("run-ters_triton.py")
+runters_file = Path("run-ters.py")
 dq = 5e-3
 efield = -1e-1
 nbins = None
@@ -101,10 +78,13 @@ print(f"xx = {xx}")
 print(f"yy = {yy}")
 
 ex = np.array([-xx, xx, -yy, yy])
+unconstrained_geometry_file = "geometry_unconstrained.in"
+mol_system = ase.io.read(Path(unconstrained_geometry_file))
+periodic = mol_system.pbc.all()
+positions = mol_system.get_positions()
+numbers = mol_system.get_atomic_numbers()
 
-
-### Find what to plot
-mode_idx = parse_modes(args.mode)
+mode_idx = args.mode
 xyz_file = next(Path(".").glob(args.xyzfile))  # pick the first match
 freqs = []
 
@@ -116,6 +96,26 @@ with xyz_file.open() as f:
             parts = line.split()
             freq = float(parts[3])  # parts[3] is the number before "1/cm"
             freqs.append(freq)
+
+# Save raw data
+if mode_idx is None:
+    # print all frequencies
+    for i, fval in enumerate(freqs):
+        print(f"Mode {i}: {fval:.3f} 1/cm")
+else:
+    # mode_idx is a list of integers
+    for idx in mode_idx:
+        if 0 <= idx < len(freqs):  # use < len(freqs) to avoid IndexError
+            f = freqs[idx]
+            print(f"Mode {idx}: {f:.3f} 1/cm")
+        else:
+            print(f"Invalid mode_idx {idx}, file has {len(freqs)} modes")
+
+ters = ffters.analyze_2d_ters(working_dir=Path('./ters2d'), mode_idx = mode_idx, efield=efield, dq=dq, nbins=nbins, periodic=periodic, no_groundstate=True)
+
+# save the raw intensity data
+for mode in mode_idx:
+    np.savetxt(f"rawdata/intensity_{freqs[mode]}.dat", ters['intensity'])
 
 # Find nearby modes
 selected_freqs = [freqs[i] for i in mode_idx]
@@ -229,4 +229,3 @@ save_dir = Path("images")
 save_dir.mkdir(parents=True, exist_ok=True) 
 plt.savefig(f"{save_dir}/2d_m{args.mode}_w{width:.0f}.png", dpi=300, bbox_inches='tight')
 plt.show()
-
