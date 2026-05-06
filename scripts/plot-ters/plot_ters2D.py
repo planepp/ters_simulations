@@ -35,7 +35,7 @@ parser.add_argument("mode", type=int, default=None, help="Mode index to process:
 parser.add_argument("--wth", type=float, default=0, help="Width in 1/cm over which the nearby modes should be found and summed over.")
 parser.add_argument("--rot", type=float, default=0, help="Angle by which the image should be rotated.")
 parser.add_argument("--plot_mol", type=bool, default=False, help="Whether molecule should be shown on top of the image.")
-parser.add_argument("--grid", type=ast.literal_eval, default=[], help="Plot image as part of a bigger grid: [nbinsx, nbinsy, xscan, yscan]. xyscan are the postions where first pixel is placed.")
+parser.add_argument("--grid", type=ast.literal_eval, default=[], help="Plot image as part of a bigger grid: [nbinsx, nbinsy, xgridmin, xgridmax, ygridmin, ygridmax, xscan, yscan]. xyscan are the postions where first pixel is placed.")
 args = parser.parse_args()
 
 
@@ -128,10 +128,11 @@ new_freqs = [freqs[i] for i in new_mods]
 ### Read and treat data
 files = [f"rawdata/intensity_{idx}.dat" for f in new_freqs]
 ters_intensity = read_and_sum_intensities(files)
+data = ters_intensity.reshape(nbins[1], nbins[0])
 
 # Rotate
 angle = args.rot
-ters_intensity = rotate(ters_intensity, angle=angle, reshape=False, order=1, mode='nearest')
+ters_intensity = rotate(data, angle=angle, reshape=False, order=1, mode='nearest')
 
 # Crop
 # Beware if image is cropped grid may not match actual pixel size used in calculations
@@ -142,7 +143,6 @@ ix = np.where((x >= xmin) & (x <= xmax))[0]
 iy = np.where((y >= ymin) & (y <= ymax))[0]
 ters_intensity = ters_intensity[iy[0]:iy[-1]+1, ix[0]:ix[-1]+1]
 ex = [x[ix[0]], x[ix[-1]], y[iy[0]], y[iy[-1]]]
-
 
 ### Plot molecule on top
 unconstrained_geometry_file = "geometry_unconstrained.in"
@@ -161,17 +161,12 @@ center = positions[:, :2].mean(axis=0)
 pos_rot = (positions[:, :2] - center) @ R.T + center
 
 # Plot
+fig, ax = plt.subplots()
 plot_mol = args.plot_mol
 if plot_mol:
-    fig, ax = plt.subplots()
-    ax.scatter(
-        pos_rot[:, 0],
-        pos_rot[:, 1],
-        c=[jmol_colors[n] for n in numbers],
-        s=[covalent_radii[n] * 100 for n in numbers],
-        edgecolors='k',
-        linewidths=0.3,
-        zorder=1
+    ax.scatter(pos_rot[:, 0], pos_rot[:, 1],
+        c=[jmol_colors[n] for n in numbers], s=[covalent_radii[n] * 100 for n in numbers],
+        edgecolors='k', linewidths=0.3, zorder=1
     )
 
 ### Plot
@@ -180,32 +175,33 @@ nx, ny = nbins[0], nbins[1]
 if args.grid != []:
     nx, ny = int(args.grid[0]), int(args.grid[1])
 
-xbins = np.linspace(xmin, xmax, nx + 1)
-ybins = np.linspace(ymin, ymax, ny + 1)
-xcenters = 0.5 * (xbins[:-1] + xbins[1:])
-ycenters = 0.5 * (ybins[:-1] + ybins[1:])
+xgridmin, xgridmax = xmin, xmax
+ygridmin, ygridmax = ymin, ymax
+if args.grid != []:
+    xgridmin, xgridmax = float(args.grid[2]), float(args.grid[3])
+    ygridmin, ygridmax = float(args.grid[4]), float(args.grid[5])
+
+xbins = np.linspace(xgridmin, xgridmax, nx + 1)
+ybins = np.linspace(ygridmin, ygridmax, ny + 1)
+xcenters = np.linspace(xgridmin, xgridmax, nx)
+ycenters = np.linspace(ygridmin, ygridmax, ny)
 grid = np.full((ny, nx), np.nan)
 
 # Determine insertion point
 xscan, yscan = np.min(xcenters), np.min(ycenters)
 if args.grid != []:
-    xscan, yscan = int(args.grid[2]), int(args.grid[3])
+    xscan, yscan = float(args.grid[6]), float(args.grid[7])
 
 iy = np.argmin(np.abs(ycenters - yscan))
 ix = np.argmin(np.abs(xcenters - xscan))
 
 # Insert data
 data = ters_intensity
-if data.ndim == 1:
-    n = len(data)
-    ix_end = min(nx, ix + n)
-    grid[iy, ix:ix_end] = data[:ix_end - ix]
-
-elif data.ndim == 2:
-    ny_p, nx_p = data.shape
-    iy_end = min(ny, iy + ny_p)
-    ix_end = min(nx, ix + nx_p)
-    grid[iy:iy_end, ix:ix_end] = data[:iy_end - iy, :ix_end - ix]
+ny_p, nx_p = data.shape
+iy_end = min(ny, iy + ny_p)
+ix_end = min(nx, ix + nx_p)
+grid[iy:iy_end, ix:ix_end] = data[:iy_end - iy, :ix_end - ix]
+grid[iy, ix:ix+10] = ters_intensity
 
 masked = np.ma.masked_invalid(grid)
 
@@ -213,19 +209,19 @@ masked = np.ma.masked_invalid(grid)
 cmap = plt.cm.viridis.copy()
 cmap.set_bad(color='grey')
 
-im = ax.imshow(masked, origin='lower', extent=ex, cmap=cmap, interpolation='none')
+im = ax.imshow(masked, extent=[xgridmin,xgridmax,ygridmin,ygridmax], origin='lower', cmap=cmap, interpolation=None)
 
-ax.set_xlabel(r'$x$ [$\mathrm{\AA}$]')
-ax.set_ylabel(r'$y$ [$\mathrm{\AA}$]')
+#ax.set_xlabel(r'$x$ [$\mathrm{\AA}$]')
+#ax.set_ylabel(r'$y$ [$\mathrm{\AA}$]')
 ax.set_title(rf'TERS image, f = {f:.3f} 1/cm ({min(new_mods):.0f}-{max(new_mods):.0f})')
 
-ax.set_xticks(xbins[::max(1, nx // 10)])
-ax.set_yticks(ybins[::max(1, ny // 10)])
 ax.set_xticks(xbins, minor=True)
 ax.set_yticks(ybins, minor=True)
 
 ax.grid(which='minor', color='white', linewidth=0.5)
 plt.colorbar(im, ax=ax)
+plt.xticks(xbins[::2], rotation=45)
+plt.yticks(ybins[::2])
 plt.tight_layout()
 
 # Save
