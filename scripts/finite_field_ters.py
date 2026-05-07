@@ -487,5 +487,5 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         'd(alpha)/dQ': dadq,
         'alpha': alphas,
         'dipole': dipoles,
-        'dipole0': dipoles_0
-    }
+    'dipole0': dipoles_0
+}

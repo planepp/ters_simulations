@@ -24,12 +24,13 @@ masses = masses,
 dq = 5e-3,
 efield = -1e-1,
 storage_dir = storage_dir,
-fn_control_template = Path('control.in'),
+fn_control_template = Path('/scratch/phys/sin/plane/znpc/ag/quickscany/control.in'),
 species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
 fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
 #fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
+fn_elsi_restart = None,
 fn_geometry = Path(geo_unconstrained),
 )
 
@@ -46,17 +47,15 @@ if run1d:
 # test 2D infrastructure
 run2d = True
 if run2d:
-    xx = 15
-    yy = 15
-    mode_indices = [151, 152, 153, 154]
+    mode_indices = [59,63,64]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             idx_mode= idx_mode,
             tip_origin = (-0.000030, -1.696604, -4.6140),
             sys_origin = (0.0, 0.0, 0.0),
             tip_height = 4.0,
-            scan_range = (-xx, xx, -yy, yy),
-            bins=(15,15)
+            scan_range = (0, 0, 0, 15),
+            bins=(1,10)
         )
 
 ### Copy constrained geometry.in into all calculation directories
