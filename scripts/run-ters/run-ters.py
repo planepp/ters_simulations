@@ -24,7 +24,7 @@ masses = masses,
 dq = 5e-3,
 efield = -1e-1,
 storage_dir = storage_dir,
-fn_control_template = Path('/scratch/phys/sin/plane/znpc/ag/quickscany/control.in'),
+fn_control_template = Path('/scratch/phys/sin/plane/znpc/ag/customscan/control.in'),
 species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
@@ -45,18 +45,25 @@ if run1d:
     )
 
 # test 2D infrastructure
+xs = np.linspace(-14.25, -0.75, 10)
+ys = [0]
+tippos = [(x, y) for x in xs for y in ys]
+scan_range = (-15,15,-15,15), # just for plotting later
+
 run2d = True
 if run2d:
-    mode_indices = [59,63,64]
+    mode_indices = [61,67,70,75,76,78,85,86,95,96,97]
+    #mode_indices = [61]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
-            idx_mode= idx_mode,
-            tip_origin = (-0.000030, -1.696604, -4.6140),
-            sys_origin = (0.0, 0.0, 0.0),
-            tip_height = 4.0,
-            scan_range = (0, 0, 0, 15),
-            bins=(1,10)
+            idx_mode=idx_mode,
+            tip_origin=(-0.000030, -1.696604, -4.6140),
+            sys_origin=(0.0, 0.0, 0.0),
+            tip_height=4.0,
+            tippos=tippos
         )
+
+
 
 ### Copy constrained geometry.in into all calculation directories
 main_dirs = []
@@ -66,11 +73,17 @@ if run2d:
     main_dirs.append("ters2d")
 
 paths = [f"{calc_dir}/mode_{idx_mode:03d}" for calc_dir in main_dirs for idx_mode in mode_indices]
+MARKER = ".processed"
 
 for path in paths:
     # Add constrained atoms back to the control.in and geometry.in
     for root, dirs, files in os.walk(path):
         if not dirs:
+            marker_path = os.path.join(root, ".processed")
+            if os.path.exists(marker_path):
+                print(f"Skipping already processed path: {root}")
+                continue
+
             dest_geom = os.path.join(root, "geometry.in")
             with open(geo_constrained, "r") as f:
                 geo_lines = f.readlines()
@@ -94,6 +107,9 @@ for path in paths:
                     file_path = find_species_file(symbol, species_dir)
                     with open(file_path, "r") as src:
                         dest.writelines(src.readlines())
+
+            with open(marker_path, "w") as f:
+                f.write("processed\n")
 
     # Make zerofield dirs
     pos_src = os.path.join(path, "tippos_000", "positive_displacement", "field_on")

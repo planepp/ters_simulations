@@ -152,30 +152,15 @@ class FiniteFieldTERS:
             pickle.dump(self.wavenumbers, open('wavenumbers.pickle', 'wb'))        
 
 
-    def run_2d_grid(self, idx_mode: int, tip_origin: Iterable, sys_origin: Iterable, tip_height: Iterable, scan_range: tuple, bins: tuple):
-        """Wrapper around the run function to launch calculations on a grid of tip-molecule displacements"""
+    def run_2d_grid(self, idx_mode: int, tip_origin: Iterable, sys_origin: Iterable, tip_height: float, tippos: Iterable):
+        """Run calculations for a list of (x, y) tip positions."""
+        mode_dir = self.parent_dir / f'ters2d/mode_{idx_mode:03d}'
+        existing = [int(d.name.split('_')[1]) for d in mode_dir.glob('tippos_*') if d.is_dir()]
+        offset = max(existing) + 1 if existing else 0
 
-        # check whether `bins` has the right dimension
-        assert len(bins) == 2, "Two elements are expected for the `nbins` argument. If you're working with a square grid, use the same integer twice."
-        # prepare spatial grid
-        xedges = np.linspace(scan_range[0], scan_range[1], (bins[0] + 1))
-        yedges = np.linspace(scan_range[2], scan_range[3], (bins[1] + 1))
-        xbins = 0.5 * (xedges[1:] + xedges[:-1])
-        ybins = 0.5 * (yedges[1:] + yedges[:-1])
-        xx, yy = np.meshgrid(xbins, ybins)
-        xx = xx.ravel()
-        yy = yy.ravel()
-
-        # run grid with nearfield
-        for i_calc, (x, y) in enumerate(zip(xx, yy)):
-            # make calculation directory
-            calc_dir = self.parent_dir / f'ters2d/mode_{idx_mode:03d}/tippos_{i_calc:03d}'
-            try:
-                calc_dir.mkdir(parents=True, exist_ok=False)
-            except FileExistsError:
-                print(f"ERROR: Folder {calc_dir} already exists.")
-
-            # run
+        for i_calc, (x, y) in enumerate(tippos):
+            calc_dir = mode_dir / f'tippos_{offset + i_calc:03d}'
+            calc_dir.mkdir(parents=True, exist_ok=False)
             self._run(
                 idx_mode=idx_mode,
                 tip_origin=tip_origin,
@@ -183,9 +168,9 @@ class FiniteFieldTERS:
                 tip_height=tip_height,
                 xy_displacement=(x, y),
                 working_dir=calc_dir
-                )  
-            
-    
+            ) 
+
+
     def _run(
             self, 
             idx_mode: int,  
@@ -407,13 +392,9 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     }
 
 
-def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float, nbins: tuple, periodic: bool, no_groundstate: bool = False, mu0_pos_displ: float = 0, mu0_neg_displ: float = 0):
+def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float, periodic: bool, no_groundstate: bool = False, mu0_pos_displ: float = 0, mu0_neg_displ: float = 0):
     """Analysis function to gather data from a single mode, 2D TERS calculation."""
     
-    # check whether `nbins` has the right dimension
-    assert len(nbins) == 2, "Two elements are expected for the `nbins` argument. If you're working with a square grid, use the same integer twice."
-    # check whether we have values
-    # they are now read automatically
     '''
     if no_groundstate:
         try:
@@ -446,6 +427,7 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         for dt in displacementtypes:
             # calculations with tip and field
             fns = sorted(mode_dir.glob(f'tippos_*/{dt:s}/field_on/aims.out'))
+            tippos_indices = [int(fn.parts[-4].split('_')[1]) for fn in fns]
             mu_z = [_read_aims_output(fn, periodic=periodic) for fn in fns]
             dipoles.append(mu_z)
             if not no_groundstate:
@@ -478,14 +460,13 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         #print(mode_max)
         #mode_intensity = mode_intensity / mode_max
         total_intensity.append(mode_intensity)
-
         total_intensity = np.sum(total_intensity, axis=0)
-        total_intensity = total_intensity.reshape(nbins[0], nbins[1])
 
     return {
         'intensity': total_intensity,
+        'tippos_indices': tippos_indices, 
         'd(alpha)/dQ': dadq,
         'alpha': alphas,
         'dipole': dipoles,
-    'dipole0': dipoles_0
-}
+        'dipole0': dipoles_0
+    }

@@ -63,6 +63,7 @@ parser.add_argument("mode", type=int, default=None, help="Mode index to process:
 parser.add_argument("--wth", type=float, default=0, help="Width in 1/cm over which the nearby modes should be found and summed over.")
 parser.add_argument("--plot_mol", type=bool, default=False, help="Whether molecule should be shown on top of the image.")
 parser.add_argument("--plot_grid", type=bool, default=False, help="Whether grid should be shown on top of the image.")
+parser.add_argument("--plot_int", type=str, default='yes', help="Whether intensity should be shown on top of the image.")
 parser.add_argument("--interpolate", type=bool, default=False, help="Whether image should be interpolated between grid positions.")
 args = parser.parse_args()
 
@@ -74,7 +75,6 @@ with control_file.open() as f:
     for line in f:
         if line.strip().startswith("tip_molecule_distance"):
             tip_height = float(line.split()[-1])
-print(f"Tip-sample distance = {tip_height} Å")
 
 runters_file = Path("run-ters.py")
 if runters_file.exists():
@@ -86,7 +86,7 @@ if runters_file.exists():
             elif line.startswith("efield"):
                 efield = float(line.split('=')[-1].strip().rstrip(','))
             elif line.startswith("scan_range"):
-                values = line.split('=')[-1].strip().strip('(),')
+                values = line.split('=')[-1].split('#')[0].strip().strip('(),')
                 xmin, xmax, ymin, ymax = map(float, values.split(','))
 else:
     print("run-ters.py not found in working directory. Please add this file with the scan_range = (xmin, xmax, ymin, ymax) tags.")
@@ -182,36 +182,39 @@ if plot_grid:
 
 ### Plot intensity data
 # Plot
-interpolate = args.interpolate
-if interpolate:
-    from scipy.interpolate import griddata
-    nbins = 100
-    xi = np.linspace(xmin, xmax, nbins)
-    yi = np.linspace(ymin, ymax, nbins)
-    Xi, Yi = np.meshgrid(xi, yi)
-    Zi = griddata((xs, ys), vals, (Xi, Yi), method='linear')
-else:
-    ix = np.argmin(np.abs(xi[:, None] - xs[None, :]), axis=0)
-    iy = np.argmin(np.abs(yi[:, None] - ys[None, :]), axis=0)
-    Zi = np.full((len(yi), len(xi)), np.nan)
-    Zi[iy, ix] = vals
-    # for plotting 1D arrays
-    if len(np.unique(ys)) == 1:
-        yi = np.array([yi[0] - 1.2, yi[0] + 1.2])
-        Zi = np.tile(Zi[0], (2, 1))
-    elif len(np.unique(xs)) == 1:
-        xi = np.array([xi[0] - 1.2, xi[0] + 1.2])
-        Zi = np.tile(Zi[:, 0:1], (1, 2))
+plot_intensity = args.plot_int
+if plot_intensity=='yes':
+    interpolate = args.interpolate
+    if interpolate:
+        from scipy.interpolate import griddata
+        nbins = 100
+        xi = np.linspace(xmin, xmax, nbins)
+        yi = np.linspace(ymin, ymax, nbins)
+        Xi, Yi = np.meshgrid(xi, yi)
+        Zi = griddata((xs, ys), vals, (Xi, Yi), method='linear')
+    else:
+        ix = np.argmin(np.abs(xi[:, None] - xs[None, :]), axis=0)
+        iy = np.argmin(np.abs(yi[:, None] - ys[None, :]), axis=0)
+        Zi = np.full((len(yi), len(xi)), np.nan)
+        Zi[iy, ix] = vals
+        # for plotting 1D arrays
+        if len(np.unique(ys)) == 1:
+            yi = np.array([yi[0] - 1.2, yi[0] + 1.2])
+            Zi = np.tile(Zi[0], (2, 1))
+        elif len(np.unique(xs)) == 1:
+            xi = np.array([xi[0] - 1.2, xi[0] + 1.2])
+            Zi = np.tile(Zi[:, 0:1], (1, 2))
 
-cmap = plt.cm.viridis.copy()
-im = ax.pcolormesh(xi, yi, np.ma.masked_invalid(Zi), cmap=cmap, shading='auto', vmin=0, vmax=None, zorder=0)
+    cmap = plt.cm.viridis.copy()
+    im = ax.pcolormesh(xi, yi, np.ma.masked_invalid(Zi), cmap=cmap, shading='auto', vmin=0, vmax=None, zorder=0)
+    plt.colorbar(im, ax=ax)
+
 ax.set_xlim([xmin, xmax])
 ax.set_ylim([ymin, ymax])
 ax.set_xlabel(r'$x$ [$\mathrm{\AA}$]')
 ax.set_ylabel(r'$y$ [$\mathrm{\AA}$]')
 ax.set_title(rf'TERS image, f = {f:.3f} 1/cm ({min(new_mods):.0f}-{max(new_mods):.0f})')
 ax.grid(False)
-plt.colorbar(im, ax=ax)
 plt.tight_layout()
 
 # Save
@@ -219,4 +222,5 @@ save_dir = Path("images")
 save_dir.mkdir(parents=True, exist_ok=True)
 outfile = save_dir / f"2d_m{args.mode}_w{width:.0f}.png"
 plt.savefig(outfile, dpi=300, bbox_inches='tight')
+#plt.close()
 plt.show()
