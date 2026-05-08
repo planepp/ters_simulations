@@ -62,10 +62,13 @@ def remove_tippos(mode_dir: Path, rmv_idx: int):
     print(f"Removed {dst}")
 
 
-for mode_dir in sorted(Path('ters2d').glob('mode_*')):
+for k in [61,67,70]:
+    mode_dir = Path(f'ters2d/mode_{k:03d}')
+#for mode_dir in sorted(Path('ters2d').glob('mode_*')):
     coords, indices = read_grid_coords(mode_dir)
-    #add_tippos(mode_dir, new_idx=100, x=15, y=15)
-    remove_tippos(mode_dir, rmv_idx=4)
+    for i,j in zip(range(64,74),np.linspace(0.75,14.25,10)):
+        add_tippos(mode_dir, new_idx=i, x=j, y=0)
+        #remove_tippos(mode_dir, rmv_idx=i)
 
 # print tip position
 #i = np.where(indices == 52)[0][0]
