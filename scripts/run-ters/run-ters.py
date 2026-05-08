@@ -16,7 +16,6 @@ from prepare_ters import (
 storage_dir = Path('/home/planelp1/') # Triton
 # storage_dir = Path('/projappl/project_2001912') # CSC
 
-
 ters = FiniteFieldTERS(
 hessian = h,
 modes = None,
@@ -24,7 +23,7 @@ masses = masses,
 dq = 5e-3,
 efield = -1e-1,
 storage_dir = storage_dir,
-fn_control_template = Path('/scratch/phys/sin/plane/znpc/ag/customscan/control.in'),
+fn_control_template = Path.cwd() / 'control.in',
 species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
@@ -44,16 +43,28 @@ if run1d:
         tip_height = 4.0
     )
 
-# test 2D infrastructure
-xs = np.linspace(-14.25, -0.75, 10)
+
+### Choose points for 2D scan
+# Single point
+xs = [0]
 ys = [0]
+# Single line
+xs = np.linspace(-14.25, -0.75, 10)
+ys = np.linspace(0, 0, 10)
+# Grid
+x = np.linspace(-14.25, -0.75, 10)
+y = np.linspace(-14.25, -0.75, 10)
+
+X, Y = np.meshgrid(x, y)
+xs = X.ravel()
+ys = Y.ravel()
+
+### Create folder structure
 tippos = [(x, y) for x in xs for y in ys]
 scan_range = (-15,15,-15,15), # just for plotting later
-
 run2d = True
 if run2d:
-    mode_indices = [61,67,70,75,76,78,85,86,95,96,97]
-    #mode_indices = [61]
+    mode_indices = [61,67,70]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             idx_mode=idx_mode,
