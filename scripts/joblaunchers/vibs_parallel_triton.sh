@@ -171,37 +171,48 @@ echo "Task $SLURM_ARRAY_TASK_ID handling dirs $start to $((end - 1))"
 # Run calculations
 ########################################
 
+# Measure time
+start_time=$(date +%s)
+n=$((end - start))
+iter_start=$(date +%s)
+
 for ((i = start; i < end; i++)); do
-
     d="${dirs[$i]}"
-
     echo "========================================"
     echo "Running in: $d"
     echo "========================================"
 
-    cd "$d" || {
-        echo "ERROR: Could not enter $d"
-        continue
-    }
-
     if [ ! -f "aims.out" ] || \
        ! grep -Eq "Have a nice day|Invalid ovlp_type" "aims.out"; then
-
         srun "$AIMS_BIN" >> aims.out 2>> aims.err
 
         if grep -Eq "Have a nice day|Invalid ovlp_type" "aims.out"; then
             echo "Calculation successful"
+
+            iter_end=$(date +%s)
+            iter_dt=$((iter_end - iter_start))
+            done_count=$((i - start + 1))
+            elapsed=$((iter_end - start_time))
+            avg=$((elapsed / done_count))
+            remaining=$((avg * (n - done_count)))
+            eta_epoch=$((iter_end + remaining))
+            eta_local=$(date -d "@$eta_epoch" '+%F %T')
+            rem_h=$((remaining / 3600))
+            rem_m=$(((remaining % 3600) / 60))
+            rem_s=$((remaining % 60))
+            iter_start=$(date +%s)
+
+            printf "Calculated in %d s. Remaining: %02d:%02d:%02d, ETA: %s\n" \
+                "$iter_dt" "$rem_h" "$rem_m" "$rem_s" "$eta_local"
         else
             echo "ERROR: Calculation failed in $d"
         fi
-
     else
-
         echo "Already completed"
-
     fi
 
     cd - >/dev/null
-
 done
+
+echo "DONE at $(date '+%F %T')"
 EOF

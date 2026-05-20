@@ -25,8 +25,8 @@ efield = -1e-1,
 storage_dir = storage_dir,
 fn_control_template = Path.cwd() / 'control.in',
 species_dir = Path(species_dir),
-#fn_tip_groundstate = Path('zeros.cube'),
-fn_tip_groundstate = None,
+fn_tip_groundstate = Path('zeros.cube'),
+#fn_tip_groundstate = None,
 fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
 #fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
 fn_elsi_restart = None,
@@ -34,45 +34,75 @@ fn_geometry = Path(geo_unconstrained),
 )
 
 ### Run multimode TERS calculation with the tip above the molecular COM    !!!
-run1d = False
+run1d = True
 if run1d:
+    mode_indices= np.arange(45,155)
     ters.run_1d_multimode(
-        mode_indices= np.arange(len(ters.modes)),
+        mode_indices= mode_indices,
         tip_origin = (-0.000030, -1.696604, -4.6140),
         sys_origin = (0.0, 0.0, 0.0),
-        tip_height = 4.0
+        tip_height = 4.0,
+        xy_displacement = (0,0),
     )
 
 
 ### Choose points for 2D scan
-# Single point
-#xs = [0]
-#ys = [0]
-# Single line
-#xs = np.linspace(-6, -1, 4)
-#ys = np.linspace(0, 0, 4)
-# Grid
-y = np.linspace(-1.5, -15, 9)
-x = np.linspace(0, 15, 10)
-X, Y = np.meshgrid(x, y)
-xs = X.ravel()
-ys = Y.ravel()
+def make_tippos(xs, ys):
+    return list(zip(xs, ys))
 
-### Create folder structure
-tippos = list(zip(xs, ys))
-scan_range = (-15,15,-15,15), # just for plotting later
-run2d = True
+def read_grid_coords(mode_idx: int, base_dir: Path = Path("ters2d")):
+    """
+    Read tip positions from all tippos_* folders of a given mode.
+    Returns xs, ys as arrays.
+    """
+    mode_dir = base_dir / f"mode_{mode_idx:03d}"
+    coords = []
+    for tippos_dir in sorted(mode_dir.glob('tippos_*')):
+        control_file = tippos_dir / 'positive_displacement' / 'field_on' / 'control.in'
+        with open(control_file) as f:
+            for line in f:
+                if line.strip().startswith('rel_shift_from_tip'):
+                    parts = line.split()
+                    coords.append((float(parts[1]), float(parts[2])))
+                    break
+    coords = np.array(coords)
+    return coords[:, 0], coords[:, 1]
+
+### ---------------------------------------------------------------
+### Define grid — choose ONE of the options below
+### ---------------------------------------------------------------
+
+# Option A: read grid from another mode's folder
+source_mode_idx = 0
+#xs, ys = read_grid_coords(source_mode_idx)
+
+# Option B: define manually
+# -- Single point
+#xs, ys = [1], [0]
+
+# -- Single line
+#xs = np.linspace(-6, -1, 4)
+#ys = np.zeros(4)
+
+# -- Grid
+# x = np.linspace(0, 15, 10)
+# y = np.linspace(-1.5, -15, 9)
+# X, Y = np.meshgrid(x, y)
+# xs, ys = X.ravel(), Y.ravel()
+
+### ---------------------------------------------------------------
+scan_range = (-15, 15, -15, 15)
+run2d = False
 if run2d:
-    mode_indices = [64]
+    mode_indices = [9]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             idx_mode=idx_mode,
             tip_origin=(-0.000030, -1.696604, -4.6140),
             sys_origin=(0.0, 0.0, 0.0),
             tip_height=4.0,
-            tippos=tippos
+            tippos=make_tippos(xs, ys)
         )
-
 
 
 ### Copy constrained geometry.in into all calculation directories
@@ -121,28 +151,29 @@ for path in paths:
             with open(marker_path, "w") as f:
                 f.write("processed\n")
 
-    # Make zerofield dirs
-    pos_src = os.path.join(path, "tippos_000", "positive_displacement", "field_on")
-    neg_src = os.path.join(path, "tippos_000", "negative_displacement", "field_on")
-    pos_dst = os.path.join(path, "poszerofield")
-    neg_dst = os.path.join(path,"negzerofield")
+    if run2d:
+        # Make zerofield dirs
+        pos_src = os.path.join(path, "tippos_000", "positive_displacement", "field_on")
+        neg_src = os.path.join(path, "tippos_000", "negative_displacement", "field_on")
+        pos_dst = os.path.join(path, "poszerofield")
+        neg_dst = os.path.join(path,"negzerofield")
 
-    if os.path.exists(pos_src) and not os.path.exists(pos_dst):
-        shutil.copytree(pos_src, pos_dst, symlinks=True)
-    if os.path.exists(neg_src) and not os.path.exists(neg_dst):
-        shutil.copytree(neg_src, neg_dst, symlinks=True)
+        if os.path.exists(pos_src) and not os.path.exists(pos_dst):
+            shutil.copytree(pos_src, pos_dst, symlinks=True)
+        if os.path.exists(neg_src) and not os.path.exists(neg_dst):
+            shutil.copytree(neg_src, neg_dst, symlinks=True)
 
-    def zero_homogeneous_field(geom_path):
-        with open(geom_path, "r") as f:
-            lines = f.readlines()
-        for i, line in enumerate(lines):
-            if "homogeneous_field" in line:
-                parts = line.split()
-                lines[i] = f"{parts[0]} 0 0 0\n"
-        with open(geom_path, "w") as f:
-            f.writelines(lines)
-            
-    pos_geom = os.path.join(pos_dst, "geometry.in")
-    neg_geom = os.path.join(neg_dst, "geometry.in")
-    zero_homogeneous_field(pos_geom)
-    zero_homogeneous_field(neg_geom)
+        def zero_homogeneous_field(geom_path):
+            with open(geom_path, "r") as f:
+                lines = f.readlines()
+            for i, line in enumerate(lines):
+                if "homogeneous_field" in line:
+                    parts = line.split()
+                    lines[i] = f"{parts[0]} 0 0 0\n"
+            with open(geom_path, "w") as f:
+                f.writelines(lines)
+                
+        pos_geom = os.path.join(pos_dst, "geometry.in")
+        neg_geom = os.path.join(neg_dst, "geometry.in")
+        zero_homogeneous_field(pos_geom)
+        zero_homogeneous_field(neg_geom)

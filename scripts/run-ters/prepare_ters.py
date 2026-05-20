@@ -85,7 +85,7 @@ print("Unconstrained atoms masses: ", mass_dict)
 # This will fail if one of the unconstrained molecule atoms is also constrained in the slab!!!
 unconstrained_atoms = read(geo_unconstrained)
 com_unconstrained = unconstrained_atoms.get_center_of_mass()
-if not np.allclose(com_unconstrained, [0, 0, 0], atol=1e-3):
+if not np.allclose(com_unconstrained, [0, 0, 0], atol=1e-2):
     print(f"WARNING: molecule COM may not at origin! Offset = {com_unconstrained}")
 
     atoms = read('geometry.in')

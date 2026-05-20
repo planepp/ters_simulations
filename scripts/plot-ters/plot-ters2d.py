@@ -52,9 +52,9 @@ parser = argparse.ArgumentParser(description="Calculate and plot a 2D TERS image
 parser.add_argument("xyzfile", type=str, help="Path to the xyz file with all the normal frequencies")
 parser.add_argument("mode", type=int, default=None, help="Mode index to process: single integer")
 parser.add_argument("--wth", type=float, default=0, help="Width in 1/cm over which the nearby modes should be found and summed over.")
-parser.add_argument("--plot_mol", action='store_true', help="Whether molecule should be shown on top of the image.")
-parser.add_argument("--plot_grid", action='store_true', help="Whether grid should be shown on top of the image.")
-parser.add_argument("--plot_int", type=str, default='yes', help="Whether intensity should be shown on top of the image.")
+parser.add_argument("--molecule", action='store_true', help="Whether molecule should be shown on top of the image.")
+parser.add_argument("--grid", action='store_true', help="Whether grid should be shown on top of the image.")
+parser.add_argument("--intensity", type=str, default='yes', help="Whether intensity should be shown on top of the image.")
 parser.add_argument("--interpolate", action='store_true', help="Whether image should be interpolated between grid positions.")
 args = parser.parse_args()
 
@@ -95,7 +95,7 @@ positions = mol_system.get_positions()
 numbers = mol_system.get_atomic_numbers()
 
 # Plot
-plot_mol = args.plot_mol
+plot_mol = args.molecule
 if plot_mol:
     ax.scatter(positions[:, 0], positions[:, 1],
         c=[jmol_colors[n] for n in numbers], s=[covalent_radii[n] * 100 for n in numbers],
@@ -148,7 +148,7 @@ coords, indices = read_grid_coords(mode_dir)
 n_grid_points = len(coords)
 print(f"Number of grid points: {n_grid_points}")
 
-plot_grid = args.plot_grid
+plot_grid = args.grid
 
 if plot_grid:
     ax.scatter(coords[:, 0], coords[:, 1], s=50, color='black', zorder=3)
@@ -216,7 +216,7 @@ if intensity_available:
 
     ### Plot intensity data
     # Plot
-    plot_intensity = args.plot_int
+    plot_intensity = args.intensity
     if plot_intensity=='yes':
         interpolate = args.interpolate
         if interpolate:
