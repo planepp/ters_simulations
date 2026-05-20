@@ -46,25 +46,24 @@ if run1d:
 
 ### Choose points for 2D scan
 # Single point
-xs = [0]
-ys = [0]
+#xs = [0]
+#ys = [0]
 # Single line
-xs = np.linspace(-14.25, -0.75, 10)
-ys = np.linspace(0, 0, 10)
+#xs = np.linspace(-6, -1, 4)
+#ys = np.linspace(0, 0, 4)
 # Grid
-x = np.linspace(-14.25, -0.75, 10)
-y = np.linspace(-14.25, -0.75, 10)
-
+y = np.linspace(-1.5, -15, 9)
+x = np.linspace(0, 15, 10)
 X, Y = np.meshgrid(x, y)
 xs = X.ravel()
 ys = Y.ravel()
 
 ### Create folder structure
-tippos = [(x, y) for x in xs for y in ys]
+tippos = list(zip(xs, ys))
 scan_range = (-15,15,-15,15), # just for plotting later
 run2d = True
 if run2d:
-    mode_indices = [61,67,70]
+    mode_indices = [64]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             idx_mode=idx_mode,
@@ -92,7 +91,7 @@ for path in paths:
         if not dirs:
             marker_path = os.path.join(root, ".processed")
             if os.path.exists(marker_path):
-                print(f"Skipping already processed path: {root}")
+                #print(f"Skipping already processed path: {root}")
                 continue
 
             dest_geom = os.path.join(root, "geometry.in")
@@ -128,10 +127,10 @@ for path in paths:
     pos_dst = os.path.join(path, "poszerofield")
     neg_dst = os.path.join(path,"negzerofield")
 
-    if os.path.exists(pos_src):
-        shutil.copytree(pos_src, pos_dst, dirs_exist_ok=True)
-    if os.path.exists(neg_src):
-        shutil.copytree(neg_src, neg_dst, dirs_exist_ok=True)    
+    if os.path.exists(pos_src) and not os.path.exists(pos_dst):
+        shutil.copytree(pos_src, pos_dst, symlinks=True)
+    if os.path.exists(neg_src) and not os.path.exists(neg_dst):
+        shutil.copytree(neg_src, neg_dst, symlinks=True)
 
     def zero_homogeneous_field(geom_path):
         with open(geom_path, "r") as f:
