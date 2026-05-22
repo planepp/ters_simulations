@@ -1,7 +1,7 @@
 # Week 1 — 22/05/2026
 
 ## Overview
-Brief description of what you worked on this week.
+Testing Sphinx documentation.
 
 ## TERS
 ### ZnPc/Ag
