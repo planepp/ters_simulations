@@ -1,7 +1,7 @@
 # Week 1 — 22/05/2026
 
 ## Overview
-Testing Sphinx documentation. 3
+Testing Sphinx documentation. 4
 
 ## TERS
 ### ZnPc/Ag
@@ -12,7 +12,7 @@ Pablo Merino's system, presented in [this paper](https://pubs.acs.org/doi/10.102
 
 **Preliminary work: relaxation of FePc/Ag(111)**
 
-Input geometry file: <a href="/fepcag/relaxation/bridge1e-2/geometry.in" target="_blank">FePc/Ag geometry.in</a>
+:download:`FePc/Ag geometry.in <fepcag/relaxation/bridge1e-2/geometry.in>`
 
 | Start | End | 
 |:---:|:---:|
