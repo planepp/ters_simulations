@@ -1,0 +1,32 @@
+# Week 1 — 22/05/2026
+
+## Overview
+Brief description of what you worked on this week.
+
+## TERS
+### ZnPc/Ag
+
+### FePc/Ag
+
+Pablo Merino's system, presented in [this paper](https://pubs.acs.org/doi/10.1021/jacs.5c18593).
+
+**Preliminary work: relaxation of FePc/Ag(111)**
+Geometry file: [geometry.in](../../scripts/FePc_Ag/geometry.in)
+```{literalinclude} ../../scripts/FePc_Ag/geometry.in
+:language: text
+```
+
+| Start | End | 
+|:---:|:---:|
+| Bridge | Bridge |
+| Top | Top |
+| Hollow | Bridge |
+
+Bridge configuration is the lowest energy. Agreement with Pablo's results (Fig. S13) ✓
+
+## CoBr/Au (Shigeki)
+
+
+## Next Steps
+- [ ] Task 1
+- [ ] Task 2

@@ -9,4 +9,4 @@ ters_simulations
 .. toctree::
    :maxdepth: 2
 
-   weeks/index
+   weeks/index_weeks
