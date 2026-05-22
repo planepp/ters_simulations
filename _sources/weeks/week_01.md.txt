@@ -12,7 +12,7 @@ Pablo Merino's system, presented in [this paper](https://pubs.acs.org/doi/10.102
 
 **Preliminary work: relaxation of FePc/Ag(111)**
 
-Input geometry file: <a href="/calculations/fepcag/relaxation/bridge1e-2/geometry.in" target="_blank">FePc/Ag geometry.in</a>
+Input geometry file: <a href="/fepcag/relaxation/bridge1e-2/geometry.in" target="_blank">FePc/Ag geometry.in</a>
 
 | Start | End | 
 |:---:|:---:|
