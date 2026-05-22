@@ -11,10 +11,8 @@ Testing Sphinx documentation.
 Pablo Merino's system, presented in [this paper](https://pubs.acs.org/doi/10.1021/jacs.5c18593).
 
 **Preliminary work: relaxation of FePc/Ag(111)**
-Geometry file: [geometry.in](../../scripts/FePc_Ag/geometry.in)
-```{literalinclude} ../../scripts/FePc_Ag/geometry.in
-:language: text
-```
+
+Input geometry file: <a href="../../scripts/FePc_Ag/geometry.in" target="_blank">FePc/Ag geometry.in</a>
 
 | Start | End | 
 |:---:|:---:|
