@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install sphinx
+      - run: pip install sphinx myst_parser
 
       - run: sphinx-build docs docs/_build/html
 
