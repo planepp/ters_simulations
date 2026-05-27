@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import argparse
+import ast
 
 # Here, we caclulate the harmonic TERS Raman 1D line spectrum of the TCNE molecule in the isolated adsorbed geometry (using the surface-bound hessian to create displacements) over the whole frequency range.
 from pathlib import Path
 import argparse
-
+from shutil import which
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -15,18 +17,27 @@ import finite_field_ters as ffters
 
 import ase
 
+
+parser = argparse.ArgumentParser(description="Plots the 1D Raman spectrum")
+parser.add_argument("scan_path", type=str, help="Path to the simulation result (usually 'ters1D_xX_yY')")
+parser.add_argument("--sigma", type=float, default=10, help="Gaussian broadening for plotting")
+parser.add_argument("--xlim", nargs=2, type=float, help="x-axis limits (e.g. --xlim 500 700)")
+args = parser.parse_args()
+
+working_dir = Path(args.scan_path)
+# assumes that the folder name is "[someIdentifier]_x[float]_y[float]"
+tip_x, tip_y = [float(v[1:]) for v in args.scan_path.strip('/').split('_')[1:]] # from "ters2d_xX_yY" takes [X, Y]
+
 # ### Get the data
 # There a simple-to-use function called `analyze_1d_ters()` in the `periodic_ters` package that reads the $z$-dipoles from the FHI-aims output and processes them into TERS intensities.
 #
 # `fn_wavenumbers` is a pickled array of wavenumbers corresponding to the mode frequencies and can be requested by the run-ters.py script and is searched for under `working_dir`.
 #
 # `periodic` can be `False` for a gas-phase system if that's how the calculation was performed. Here we used a giant 100x100x100 Å$^3$ periodic box for testing purposes, which is equivalent to open boundary conditions.
-#
-# This script assumes `run-ters.py` and `mode_***` subdirs to be in working directory.
 
 # %%
 ### Tip-sample distance
-mode_dirs = sorted(Path(".").glob("ters1d/mode_*"))
+mode_dirs = sorted(working_dir.glob("mode_*"))
 tip_height, tip_shift = None, None
 for mode_dir in mode_dirs:
     control_file = mode_dir / "positive_displacement/field_on/control.in"
@@ -41,42 +52,32 @@ for mode_dir in mode_dirs:
         if line_height and line_shift:
             break
 
-print(f"Tip-sample distance = {tip_height} Å")
-print(f"Tip xy-shift = {tip_shift} Å")
-
-# %%
-runters_file = Path("run-ters_triton.py")
 dq = 5e-3
-efield = 1e-3
-if runters_file.exists():
-    with runters_file.open() as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("dq"):
-                dq = float(line.split('=')[-1].strip().rstrip(','))
-            elif line.startswith("efield"):
-                efield = float(line.split('=')[-1].strip().rstrip(','))
-else: 
-    print("run-ters.py not found in working directory. Assuming default dq, efield.")
-
+efield = -1e-1
+print(f"Tip-sample distance = {tip_height} Å")
+print(f"Tip xy-shift = {tip_x},{tip_y} Å")
 print(f"dq = {dq}")
 print(f"efield = {efield}")
 
-# %%
+
+# just to find if system is periodic
 geometry_file = mode_dir / "positive_displacement/field_on/geometry.in"
 system = ase.io.read(Path(geometry_file))
 periodic = system.pbc.all()
 
-# The data is a dictionary that includes everything we need to analyze the TERS spectrum:
-data_ters = ffters.analyze_1d_ters(working_dir=Path('./'), fn_wavenumbers=Path('wavenumbers.pickle'), efield=efield, dq=dq, periodic=periodic)
+# The data is a dictionary that includes everything we need to analyze the TERS spectrum
+data_ters = ffters.analyze_1d_ters(
+    working_dir=Path(working_dir),
+    fn_wavenumbers=Path('wavenumbers.pickle'),
+    efield=efield,
+    dq=dq,
+    periodic=periodic
+)
+
 wns = data_ters['wavenumbers']
 its = data_ters['intensity']
-#print(data_ters)
 
-# %%
-parser = argparse.ArgumentParser()
-parser.add_argument("--xlim", nargs=2, type=float, help="x-axis limits (e.g. --xlim 500 700)")
-args = parser.parse_args()
+
 if args.xlim:
     xlims = args.xlim
     plt.xlim(xlims)
@@ -88,13 +89,14 @@ wn_sub, it_sub = wns[mask], its[mask]
 imax = np.argmax(it_sub)
 plt.ylim(-0.01 * it_sub.min(), 1.1 * it_sub.max())
 
-# ### Plot the raw stick (harmonic) spectrum
+# Plot the raw stick (harmonic) spectrum
 #plt.plot(wns, its, 'o', label=rf'Maxima at {wn_sub[imax]:.2f} cm$^{{-1}}$')
+
 for i in range(len(wns)):
     plt.vlines(x=wns[i], ymin=0, ymax=its[i])
 plt.xlabel(r'Wavenumber [cm$^{-1}$]')
 plt.ylabel(r'$\left(\mathrm{d}\alpha_{zz} / \mathrm{d}Q_\omega\right)^2$  [$e^2$ $\mathrm{\AA}^2$ $V^{-2}$]')
-plt.title(rf'Isolated TCNE harmonic TERS, $\vec{{R}}={tip_shift}$, d={tip_height} $\mathrm{{\AA}}$')
+plt.title(rf'Isolated TCNE harmonic TERS, $\vec{{R}}={tip_x:.1f},{tip_y:.1f}$, d={tip_height} $\mathrm{{\AA}}$')
 plt.tight_layout()
 plt.show()
 
@@ -105,7 +107,7 @@ def gaussian(x, mu, sigma):
 
 w = np.linspace(0, np.max(wn_sub), 1000)
 signal = np.zeros(w.shape)
-sigma = 5
+sigma = args.sigma
 for wn, int in zip(wn_sub, it_sub):
     signal += int * gaussian(w, mu=wn, sigma=sigma)
 
@@ -116,4 +118,5 @@ plt.ylabel(r'$\left(\mathrm{d}\alpha_{zz} / \mathrm{d}Q_\omega\right)^2$  [$e^2$
 plt.title(rf'TCNE harmonic $zz$-Raman, $\vec{{R}}={tip_shift}$, d={tip_height} $\mathrm{{\AA}}$')
 plt.legend()
 plt.tight_layout()
+plt.savefig("1dscanlobe.png")
 plt.show()

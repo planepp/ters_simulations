@@ -120,7 +120,8 @@ class FiniteFieldTERS:
         self._modes = modes
 
     def run_1d_multimode(
-            self, 
+            self,
+            working_dir: Path,
             mode_indices: Iterable, 
             tip_origin: Iterable, 
             sys_origin: Iterable, 
@@ -131,13 +132,15 @@ class FiniteFieldTERS:
         """Wrapper around the `run` function to launch calculations with a single tip position for different modes"""
         
         # run over all modes
+        existing_folders_count = 0
         for idx_mode in mode_indices:
             # make calculation directory
-            calc_dir = self.parent_dir / f'ters1d/mode_{idx_mode:03d}'
+            calc_dir = self.parent_dir / working_dir / f'mode_{idx_mode:03d}'
             try:
                 calc_dir.mkdir(parents=True, exist_ok=False)
             except FileExistsError:
-                print(f"ERROR: Folder {calc_dir} already exists.")
+                existing_folders_count += 1
+                #print(f"ERROR: Folder {calc_dir} already exists.")
             # run
             self._run(
                 idx_mode=idx_mode,
@@ -147,12 +150,22 @@ class FiniteFieldTERS:
                 xy_displacement=xy_displacement,
                 working_dir=calc_dir,
                 ) 
+        if existing_folders_count > 0: # short debug message
+            print(f'ERROR: found {existing_folders_count} already existing folders')
         # optionally dump the wavenumbers into a pickle file
         if dump_wavenumbers:
             pickle.dump(self.wavenumbers, open('wavenumbers.pickle', 'wb'))        
 
 
-    def run_2d_grid(self, idx_mode: int, tip_origin: Iterable, sys_origin: Iterable, tip_height: float, tippos: Iterable):
+    def run_2d_grid(
+        self,
+        working_dir: Path,
+        idx_mode: int,
+        tip_origin: Iterable,
+        sys_origin: Iterable,
+        tip_height: float,
+        tippos: Iterable):
+        
         """Run calculations for a list of (x, y) tip positions."""
         mode_dir = self.parent_dir / f'ters2d/mode_{idx_mode:03d}'
         existing = [int(d.name.split('_')[1]) for d in mode_dir.glob('tippos_*') if d.is_dir()]
@@ -168,7 +181,7 @@ class FiniteFieldTERS:
                 tip_height=tip_height,
                 xy_displacement=(x, y),
                 working_dir=calc_dir
-            ) 
+                )
 
 
     def _run(
@@ -335,7 +348,7 @@ class FiniteFieldTERS:
             lines += [f'homogeneous_field 0.0 0.0 0.0\n']
         # vacuum level: we put this firmly into 49% of the height of the central cell, only set up if cell is given
         if self.system.pbc.all() == True:
-            zlevel = 0.49 * self.system.cell[-1, -1] 
+            zlevel = 0.49 * self.system.cell[-1, -1]
             lines += [f'set_vacuum_level {zlevel:.16f}']
 
         # dump to target
@@ -358,7 +371,7 @@ def _read_aims_output(fn_aims: Path, periodic: bool):
                     mu_z = float(line.split()[8])
             else:
                  if "| Total dipole moment [eAng]" in line:
-                    mu_z = float(line.split()[8])               
+                    mu_z = float(line.split()[8])
     return mu_z
 
 def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: float, periodic: bool):
@@ -366,13 +379,18 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
 
     fieldtypes = ['field_on', 'zero_field']
     displacementtypes = ['negative_displacement', 'positive_displacement']
+
+    mode_dirs = sorted(working_dir.glob('mode_*'))
+    mode_indices = [int(d.name.split('_')[1]) for d in mode_dirs if d.is_dir()]
+
     # read dipoles into a nested list
     dipoles = []
     for dt in displacementtypes:
         for ft in fieldtypes:
-            fns = sorted(working_dir.glob(f'ters1d/mode_*/{dt:s}/{ft:s}/aims.out'))
+            fns = sorted(working_dir.glob(f'mode_*/{dt:s}/{ft:s}/aims.out'))
             mu_z = [_read_aims_output(fn, periodic=periodic) for fn in fns]
             dipoles.append(mu_z)
+
     dipoles = np.array(dipoles)
     # calculate polarizabilities
     alphas = np.array([(dipoles[i] - dipoles[i + 1]) for i in (0, 2)]) / efield
@@ -384,7 +402,7 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     wn = pickle.load(open(working_dir / fn_wavenumbers, 'rb'))
 
     return {
-        'wavenumbers': wn[-len(intensity):],
+        'wavenumbers': wn[mode_indices],
         'intensity': intensity,
         'd(alpha)/dQ': dadq,
         'alpha': alphas,
@@ -435,7 +453,7 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
                 fns_0 = sorted(mode_dir.glob(f'tippos_*/{dt:s}/zero_field/aims.out'))
                 mu_z_0 = [_read_aims_output(fn_0, periodic=periodic) for fn_0 in fns_0]
                 dipoles_0.append(mu_z_0)
-            if no_groundstate:
+            elif no_groundstate:
                 if dt == displacementtypes[0]:
                     fn0_neg = mode_dir / 'negzerofield' / 'aims.out'
                     mu0_neg = _read_aims_output(fn0_neg, periodic=periodic)
@@ -452,7 +470,7 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         alphas = (dipoles - dipoles_0) / efield
         # calculate d(alpha)/dQ
         dadq = (alphas[1] - alphas[0]) / (2 * dq)
-        # calculate Raman TERS image
+        # calculate Raman intensities
         mode_intensity = dadq**2
         #print(mode_intensity)
         #print(mode_intensity[0])
@@ -460,7 +478,6 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         #print(mode_max)
         #mode_intensity = mode_intensity / mode_max
         total_intensity.append(mode_intensity)
-        total_intensity = np.sum(total_intensity, axis=0)
 
     return {
         'intensity': total_intensity,

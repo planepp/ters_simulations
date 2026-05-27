@@ -1,10 +1,14 @@
+#!/usr/bin/env python
 from pathlib import Path
 import numpy as np
 import sys
 import os
 import shutil
+import ast
+from ase.io import read, write
 
 sys.path.append(os.path.expanduser("~/.local/bin"))
+
 from finite_field_ters import FiniteFieldTERS
 from prepare_ters import (
     h, masses, geo_unconstrained, geo_constrained,
@@ -12,8 +16,18 @@ from prepare_ters import (
     find_species_file
 )
 
-### Set up initial TERS object, fill with required data                     !!!
-storage_dir = Path('/home/planelp1/') # Triton
+def zero_homogeneous_field(geom_path):
+    with open(geom_path, "r") as f:
+        lines = f.readlines()
+    for i, line in enumerate(lines):
+        if "homogeneous_field" in line:
+            parts = line.split()
+            lines[i] = f"{parts[0]} 0 0 0\n"
+    with open(geom_path, "w") as f:
+        f.writelines(lines)
+
+
+storage_dir = Path('~') # Triton
 # storage_dir = Path('/projappl/project_2001912') # CSC
 
 ters = FiniteFieldTERS(
@@ -25,26 +39,27 @@ efield = -1e-1,
 storage_dir = storage_dir,
 fn_control_template = Path.cwd() / 'control.in',
 species_dir = Path(species_dir),
-fn_tip_groundstate = Path('zeros.cube'),
-#fn_tip_groundstate = None,
+#fn_tip_groundstate = Path('zeros.cube'),
+fn_tip_groundstate = None,
 fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
 #fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
 fn_elsi_restart = None,
 fn_geometry = Path(geo_unconstrained),
 )
 
-### Run multimode TERS calculation with the tip above the molecular COM    !!!
-run1d = True
+### Run 1D scan
+run1d = False
+x, y = 0, 10
 if run1d:
-    mode_indices= np.arange(45,155)
+    mode_indices= np.arange(45,48)
     ters.run_1d_multimode(
-        mode_indices= mode_indices,
+        working_dir = Path(f'ters1d_x{x:.1f}_y{y:.1f}'),
+        mode_indices = mode_indices,
         tip_origin = (-0.000030, -1.696604, -4.6140),
         sys_origin = (0.0, 0.0, 0.0),
         tip_height = 4.0,
-        xy_displacement = (0,0),
+        xy_displacement = (x,y)
     )
-
 
 ### Choose points for 2D scan
 def make_tippos(xs, ys):
@@ -68,17 +83,13 @@ def read_grid_coords(mode_idx: int, base_dir: Path = Path("ters2d")):
     coords = np.array(coords)
     return coords[:, 0], coords[:, 1]
 
-### ---------------------------------------------------------------
-### Define grid — choose ONE of the options below
-### ---------------------------------------------------------------
-
 # Option A: read grid from another mode's folder
-source_mode_idx = 0
+#source_mode_idx = 0
 #xs, ys = read_grid_coords(source_mode_idx)
 
 # Option B: define manually
 # -- Single point
-#xs, ys = [1], [0]
+xs, ys = [1], [0]
 
 # -- Single line
 #xs = np.linspace(-6, -1, 4)
@@ -90,17 +101,19 @@ source_mode_idx = 0
 # X, Y = np.meshgrid(x, y)
 # xs, ys = X.ravel(), Y.ravel()
 
-### ---------------------------------------------------------------
+
+### Run 2D scan
 scan_range = (-15, 15, -15, 15)
-run2d = False
+run2d = True
 if run2d:
     mode_indices = [9]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
-            idx_mode=idx_mode,
-            tip_origin=(-0.000030, -1.696604, -4.6140),
-            sys_origin=(0.0, 0.0, 0.0),
-            tip_height=4.0,
+            working_dir = Path(f'ters2d'),
+            idx_mode = idx_mode,
+            tip_origin = (-0.000030, -1.696604, -4.6140),
+            sys_origin = (0.0, 0.0, 0.0),
+            tip_height = 4.0,
             tippos=make_tippos(xs, ys)
         )
 
@@ -108,7 +121,7 @@ if run2d:
 ### Copy constrained geometry.in into all calculation directories
 main_dirs = []
 if run1d:
-    main_dirs.append("ters1d")
+    main_dirs.append(f"ters1d_x{x:.1f}_y{y:.1f}")
 if run2d:
     main_dirs.append("ters2d")
 
@@ -136,11 +149,9 @@ for path in paths:
 
             # Insert geo_lines at the desired position
             geom_lines = geom_lines[:insert_index] + geo_lines + geom_lines[insert_index:]
-
             # Write back to dest_geom
             with open(dest_geom, "w") as f:
                 f.writelines(geom_lines)
-
             controlin = os.path.join(root, "control.in")
             with open(controlin, "a") as dest:
                 for symbol in set(symbols_constrained) - set(symbols_unconstrained):
@@ -163,15 +174,6 @@ for path in paths:
         if os.path.exists(neg_src) and not os.path.exists(neg_dst):
             shutil.copytree(neg_src, neg_dst, symlinks=True)
 
-        def zero_homogeneous_field(geom_path):
-            with open(geom_path, "r") as f:
-                lines = f.readlines()
-            for i, line in enumerate(lines):
-                if "homogeneous_field" in line:
-                    parts = line.split()
-                    lines[i] = f"{parts[0]} 0 0 0\n"
-            with open(geom_path, "w") as f:
-                f.writelines(lines)
                 
         pos_geom = os.path.join(pos_dst, "geometry.in")
         neg_geom = os.path.join(neg_dst, "geometry.in")
