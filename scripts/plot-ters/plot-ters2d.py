@@ -142,7 +142,7 @@ try:
         no_groundstate=True
     )
 
-    print(ters['intensity'])
+    #print(ters['intensity'])
     np.savetxt(filepath, ters['intensity'])
     print(f"Saved intensity data to {filepath}")
 
@@ -226,11 +226,15 @@ if intensity_available:
                 continue
 
         # Map tippos index -> (coord, intensity)
-        tippos_to_coord = dict(zip(m_indices, m_coords))
-        valid = [idx for idx in m_tippos if idx in tippos_to_coord]
-        m_xs   = np.array([tippos_to_coord[idx][0] for idx in valid])
-        m_ys   = np.array([tippos_to_coord[idx][1] for idx in valid])
-        m_vals = np.array([m_intensity[list(m_tippos).index(idx)] for idx in valid])
+        tippos_indices      = ters['tippos_indices']
+        tippos_to_coord     = dict(zip(m_indices, m_coords))
+        tippos_to_intensity = dict(zip(tippos_indices, m_intensity))
+
+        valid  = [idx for idx in tippos_indices if idx in tippos_to_coord and idx in tippos_to_intensity]
+        m_xs   = np.array([tippos_to_coord[idx][0]  for idx in valid])
+        m_ys   = np.array([tippos_to_coord[idx][1]  for idx in valid])
+        m_vals = np.array([tippos_to_intensity[idx] for idx in valid])
+
         per_mode_data.append((m_xs, m_ys, m_vals))
 
     ### Plot intensity data
@@ -286,7 +290,7 @@ if intensity_available:
                 Zi = np.tile(Zi[:, 0:1], (1, 2))
 
         cmap = plt.cm.viridis.copy()
-        im = ax.pcolormesh(xi, yi, np.ma.masked_invalid(Zi), cmap=cmap, shading='auto', vmin=0, vmax=None, zorder=0)
+        im = ax.pcolormesh(xi, yi, np.ma.masked_invalid(Zi), cmap=cmap, shading='auto', vmin=None, vmax=None, zorder=0)
         plt.colorbar(im, ax=ax)
 
 ax.set_xlim([xmin, xmax])
