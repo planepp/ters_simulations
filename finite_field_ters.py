@@ -383,15 +383,39 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     mode_dirs = sorted(working_dir.glob('mode_*'))
     mode_indices = [int(d.name.split('_')[1]) for d in mode_dirs if d.is_dir()]
 
-    # read dipoles into a nested list
+    mode_indices_per_dtft = []
+    fns_per_dtft = []
     dipoles = []
     for dt in displacementtypes:
         for ft in fieldtypes:
             fns = sorted(working_dir.glob(f'mode_*/{dt:s}/{ft:s}/aims.out'))
-            mu_z = [_read_aims_output(fn, periodic=periodic) for fn in fns]
+            mode_indices = []
+            mu_z = []
+            for fn in fns:
+                idx = int(fn.parts[-4].split('_')[1])
+                mu = _read_aims_output(fn, periodic=periodic)
+                if mu is None or np.any(np.isnan(mu)):
+            #        print(f"Warning: NaN or None in {fn}, excluding mode {idx}.")
+                    continue
+                mode_indices.append(idx)
+                mu_z.append(mu)
             dipoles.append(mu_z)
+            mode_indices_per_dtft.append(set(mode_indices))
+            fns_per_dtft.append((fns, mode_indices))
 
-    dipoles = np.array(dipoles)
+    # Find mode indices present in ALL dt/ft combinations
+    common_modes = mode_indices_per_dtft[0].intersection(*mode_indices_per_dtft[1:])
+    skipped = mode_indices_per_dtft[0].union(*mode_indices_per_dtft[1:]) - common_modes
+    if skipped:
+        print(f"Warning: skipping mode indices {sorted(skipped)} (missing one displacement/field type).")
+
+    common_modes_sorted = sorted(common_modes)
+    filtered_dipoles = []
+    for dtft_idx, (fns, mode_indices) in enumerate(fns_per_dtft):
+        mask = [idx in common_modes for idx in mode_indices]
+        filtered_dipoles.append([mu for mu, keep in zip(dipoles[dtft_idx], mask) if keep])
+
+    dipoles = np.array(filtered_dipoles)
     # calculate polarizabilities
     alphas = np.array([(dipoles[i] - dipoles[i + 1]) for i in (0, 2)]) / efield
     # calculate d(alpha) / dQ
@@ -406,7 +430,7 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     wn = pickle.load(open(working_dir / fn_wavenumbers, 'rb'))
 
     return {
-        'wavenumbers': wn[mode_indices],
+        'wavenumbers': wn[common_modes_sorted],
         'intensity': intensity,
         'd(alpha)/dQ': dadq,
         'alpha': alphas,

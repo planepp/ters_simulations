@@ -76,7 +76,7 @@ data_ters = ffters.analyze_1d_ters(
 
 wns = data_ters['wavenumbers']
 its = data_ters['intensity']
-
+np.savetxt("rightlobe.txt", its)
 
 if args.xlim:
     xlims = args.xlim
@@ -87,10 +87,12 @@ else:
 
 wn_sub, it_sub = wns[mask], its[mask]
 imax = np.argmax(it_sub)
+
+it_sub = it_sub[~np.isnan(it_sub)]
 plt.ylim(-0.01 * it_sub.min(), 1.1 * it_sub.max())
 
 # Plot the raw stick (harmonic) spectrum
-#plt.plot(wns, its, 'o', label=rf'Maxima at {wn_sub[imax]:.2f} cm$^{{-1}}$')
+plt.plot(wns, its, 'o', label=rf'Maxima at {wn_sub[imax]:.2f} cm$^{{-1}}$')
 
 for i in range(len(wns)):
     plt.vlines(x=wns[i], ymin=0, ymax=its[i])
@@ -98,7 +100,7 @@ plt.xlabel(r'Wavenumber [cm$^{-1}$]')
 plt.ylabel(r'$\left(\mathrm{d}\alpha_{zz} / \mathrm{d}Q_\omega\right)^2$  [$e^2$ $\mathrm{\AA}^2$ $V^{-2}$]')
 plt.title(rf'Isolated TCNE harmonic TERS, $\vec{{R}}={tip_x:.1f},{tip_y:.1f}$, d={tip_height} $\mathrm{{\AA}}$')
 plt.tight_layout()
-plt.show()
+#plt.show()
 
 
 # The harmonic spectrum can be broadened with Gaussians to mimic a thermal and possibly otherwise broadened spectral lines.
