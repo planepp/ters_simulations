@@ -383,26 +383,54 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     mode_dirs = sorted(working_dir.glob('mode_*'))
     mode_indices = [int(d.name.split('_')[1]) for d in mode_dirs if d.is_dir()]
 
-    # read dipoles into a nested list
+    mode_indices_per_dtft = []
+    fns_per_dtft = []
     dipoles = []
     for dt in displacementtypes:
         for ft in fieldtypes:
             fns = sorted(working_dir.glob(f'mode_*/{dt:s}/{ft:s}/aims.out'))
-            mu_z = [_read_aims_output(fn, periodic=periodic) for fn in fns]
+            mode_indices = []
+            mu_z = []
+            for fn in fns:
+                idx = int(fn.parts[-4].split('_')[1])
+                mu = _read_aims_output(fn, periodic=periodic)
+                if mu is None or np.any(np.isnan(mu)):
+            #        print(f"Warning: NaN or None in {fn}, excluding mode {idx}.")
+                    continue
+                mode_indices.append(idx)
+                mu_z.append(mu)
             dipoles.append(mu_z)
+            mode_indices_per_dtft.append(set(mode_indices))
+            fns_per_dtft.append((fns, mode_indices))
 
-    dipoles = np.array(dipoles)
+    # Find mode indices present in ALL dt/ft combinations
+    common_modes = mode_indices_per_dtft[0].intersection(*mode_indices_per_dtft[1:])
+    skipped = mode_indices_per_dtft[0].union(*mode_indices_per_dtft[1:]) - common_modes
+    if skipped:
+        print(f"Warning: skipping mode indices {sorted(skipped)} (missing one displacement/field type).")
+
+    common_modes_sorted = sorted(common_modes)
+    filtered_dipoles = []
+    for dtft_idx, (fns, mode_indices) in enumerate(fns_per_dtft):
+        mask = [idx in common_modes for idx in mode_indices]
+        filtered_dipoles.append([mu for mu, keep in zip(dipoles[dtft_idx], mask) if keep])
+
+    dipoles = np.array(filtered_dipoles)
     # calculate polarizabilities
     alphas = np.array([(dipoles[i] - dipoles[i + 1]) for i in (0, 2)]) / efield
     # calculate d(alpha) / dQ
     dadq = (alphas[1] - alphas[0]) / (2 * dq)
     # calculate Raman intensities
     intensity = dadq**2
+    mode_max = np.max(intensity)
+    #intensity = intensity / mode_max
+    #print(intensity)
+
     # read in wavenumbers
     wn = pickle.load(open(working_dir / fn_wavenumbers, 'rb'))
 
     return {
-        'wavenumbers': wn[mode_indices],
+        'wavenumbers': wn[common_modes_sorted],
         'intensity': intensity,
         'd(alpha)/dQ': dadq,
         'alpha': alphas,
@@ -438,16 +466,21 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
         mode_dirs.extend(sorted(working_dir.glob(pattern)))
 
     # remove duplicates (in case patterns overlap)
-    mode_dirs = sorted(set(mode_dirs))
-    for mode_dir in mode_dirs: 
+    for mode_dir in mode_dirs:
         dipoles = []
         dipoles_0 = []
+        tippos_indices_per_dt = []
+        fns_per_dt = []
+
         for dt in displacementtypes:
             # calculations with tip and field
             fns = sorted(mode_dir.glob(f'tippos_*/{dt:s}/field_on/aims.out'))
             tippos_indices = [int(fn.parts[-4].split('_')[1]) for fn in fns]
             mu_z = [_read_aims_output(fn, periodic=periodic) for fn in fns]
             dipoles.append(mu_z)
+            tippos_indices_per_dt.append(set(tippos_indices))
+            fns_per_dt.append((fns, tippos_indices))
+
             if not no_groundstate:
                 # zero-field reference values
                 fns_0 = sorted(mode_dir.glob(f'tippos_*/{dt:s}/zero_field/aims.out'))
@@ -462,10 +495,24 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
                     fn0_pos = mode_dir / 'poszerofield' / 'aims.out'
                     mu0_pos = _read_aims_output(fn0_pos, periodic=periodic)
                     dipoles_0.append([mu0_pos] * len(fns))
-                #dipoles_0 = [mu0_neg_displ] * len(fns) + [mu0_pos_displ] * len(fns)
 
-        dipoles = np.array(dipoles)
-        dipoles_0 = np.array(dipoles_0)
+        # Find tip positions present in ALL displacement types
+        common_tippos = tippos_indices_per_dt[0] & tippos_indices_per_dt[1]
+        skipped = tippos_indices_per_dt[0].symmetric_difference(tippos_indices_per_dt[-1])
+        if skipped:
+            print(f"Warning: skipping tip positions {sorted(skipped)} in "
+                  f"{mode_dir.name} (missing one displacement type).")
+
+        # Filter dipoles and dipoles_0 to only common tip positions
+        filtered_dipoles = []
+        filtered_dipoles_0 = []
+        for dt_idx, (fns, tippos_indices) in enumerate(fns_per_dt):
+            mask = [idx in common_tippos for idx in tippos_indices]
+            filtered_dipoles.append([mu for mu, keep in zip(dipoles[dt_idx], mask) if keep])
+            filtered_dipoles_0.append([mu for mu, keep in zip(dipoles_0[dt_idx], mask) if keep])
+
+        dipoles = np.array(filtered_dipoles)
+        dipoles_0 = np.array(filtered_dipoles_0)
         # calculate polarizabilities
         alphas = (dipoles - dipoles_0) / efield
         # calculate d(alpha)/dQ
@@ -481,7 +528,7 @@ def analyze_2d_ters(working_dir: Path, mode_idx: list, efield: float, dq: float,
 
     return {
         'intensity': total_intensity,
-        'tippos_indices': tippos_indices, 
+        'tippos_indices': sorted(common_tippos), 
         'd(alpha)/dQ': dadq,
         'alpha': alphas,
         'dipole': dipoles,
