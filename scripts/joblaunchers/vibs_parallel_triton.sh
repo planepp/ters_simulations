@@ -5,9 +5,9 @@
 ########################################
 
 AIMS_BIN="aims.250320.scalapack.mpi.x"
-GROUP_SIZE=5
-JOBNAME="neglines"
-TIME="10:00:00"
+group_size=8
+JOBNAME="m59"
+time="13:00:00"
 
 ########################################
 # Parse arguments
@@ -32,11 +32,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$mode" ]; then
-    echo "Usage: ./submit_vibs.sh [nmodes|ters1d|ters2d] [--pos 1,2,3]"
+    echo "Usage: ./submit_vibs.sh [nmodes|ters1d|ters2d] [group_size] [hours] [--pos 1,2,3]"
     exit 1
 fi
 
-mkdir -p out dirs_lists
+mkdir -p out out/dirs_lists
 
 ########################################
 # Find unfinished leaf directories
@@ -44,9 +44,15 @@ mkdir -p out dirs_lists
 
 echo "Preparing directory list..."
 
-mapfile -t all_dirs < <(
-    find "${mode}"* -type d ! -exec sh -c 'ls -A "{}"/*/ >/dev/null 2>&1' \; -print | sort
-)
+
+#mapfile -t all_dirs < <(
+#    find "${mode}"* -type d ! -exec sh -c 'ls -A "{}"/*/ >/dev/null 2>&1' \; -print | sort
+#)
+
+mapfile -t all_dirs < <(get_leaf_dirs.py "${mode}" )
+echo "Found ${#all_dirs[@]} directories"
+
+#check_zerofield.py ${all_dirs[0]}
 
 dirs=()
 
@@ -62,6 +68,7 @@ done
 ########################################
 # Optional filtering by tip positions
 ########################################
+
 
 if [ ${#pos_filter[@]} -gt 0 ]; then
 
@@ -110,7 +117,7 @@ fi
 ########################################
 
 timestamp=$(date +%Y%m%d_%H%M%S)
-listfile="dirs_lists/dirs_${JOBNAME}_${timestamp}.txt"
+listfile="./out/dirs_lists/dirs_${JOBNAME}_${timestamp}.txt"
 
 printf "%s\n" "${dirs[@]}" > "$listfile"
 
@@ -118,101 +125,127 @@ printf "%s\n" "${dirs[@]}" > "$listfile"
 # Compute array size
 ########################################
 
-num_groups=$(( (num_dirs + GROUP_SIZE - 1) / GROUP_SIZE ))
+num_groups=$(( (num_dirs + group_size - 1) / group_size ))
 
 echo "Total dirs: $num_dirs"
-echo "Group size: $GROUP_SIZE"
+echo "Group size: $group_size"
 echo "Array jobs: $num_groups"
+echo "Allocated time: $time"
 
 ########################################
 # Submit array job
 ########################################
 
+echo "Starting $JOBNAME"
+
+: '
+# -EOF = tab friendly, EOF is just convention, and not using the quoted 'EOF' allows for variables evaluation
+#sh -s $listfile $group_size $AIMS_BIN \ # debug run
+'
 sbatch \
     --job-name="$JOBNAME" \
-    --time="$TIME" \
-    --output="out/${JOBNAME}_%A_%a.out" \
+    --time="$time" \
+    --output="out/${JOBNAME}/%A_%a.out" \
     --array=0-$((num_groups - 1)) \
-    --export=ALL,LISTFILE="$listfile",GROUP_SIZE="$GROUP_SIZE",AIMS_BIN="$AIMS_BIN" \
-<<'EOF'
+    --export=ALL,LISTFILE="$listfile",GROUP_SIZE="$group_size",AIMS_BIN="$AIMS_BIN" \
+<<-EOF
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=24
 #SBATCH --mem-per-cpu=2000
 
 module load triton/2024.1-gc aims/250320
-
 export OMP_NUM_THREADS=1
+
 ulimit -s unlimited
 
 ########################################
 # Load directory list
 ########################################
 
-mapfile -t dirs < "$LISTFILE"
+mapfile -t dirs < "\$LISTFILE"
 
-num_dirs=${#dirs[@]}
+num_dirs=\${#dirs[@]}
 
-start=$(( SLURM_ARRAY_TASK_ID * GROUP_SIZE ))
-end=$(( start + GROUP_SIZE ))
+start=\$(( SLURM_ARRAY_TASK_ID * GROUP_SIZE ))
+end=\$(( start + GROUP_SIZE ))
 
 if (( start >= num_dirs )); then
-    echo "Task $SLURM_ARRAY_TASK_ID: nothing to do"
+    echo "Task \$SLURM_ARRAY_TASK_ID: nothing to do"
+    #check_zerofield.py \${dirs[0]} print_missing
     exit 0
 fi
 
 if (( end > num_dirs )); then
-    end=$num_dirs
+    end=\$num_dirs
 fi
 
-echo "Task $SLURM_ARRAY_TASK_ID handling dirs $start to $((end - 1))"
+echo "Task \$SLURM_ARRAY_TASK_ID handling dirs \$start to \$((end - 1))"
 
 ########################################
 # Run calculations
 ########################################
 
-# Measure time
-start_time=$(date +%s)
-n=$((end - start))
-iter_start=$(date +%s)
+#check_zerofield.py \${dirs[0]}
+
+start_time=\$(date +%s)
+echo "STARTED at $(date '+%F %T')"
+n=\$((end - start))
+
+iter_start=\$(date +%s)
 
 for ((i = start; i < end; i++)); do
-    d="${dirs[$i]}"
+
+    d="\${dirs[\$i]}"
+
     echo "========================================"
-    echo "Running in: $d"
-    echo "========================================"
+    echo "\$i/\$((end-1)) running in: \$d"
+
+    cd "\$d" || {
+        echo "ERROR: Could not enter \$d"
+        continue
+    }
 
     if [ ! -f "aims.out" ] || \
        ! grep -Eq "Have a nice day|Invalid ovlp_type" "aims.out"; then
-        srun "$AIMS_BIN" >> aims.out 2>> aims.err
 
-        if grep -Eq "Have a nice day|Invalid ovlp_type" "aims.out"; then
-            echo "Calculation successful"
+        srun "\$AIMS_BIN" >> aims.out 2>> aims.err
 
-            iter_end=$(date +%s)
-            iter_dt=$((iter_end - iter_start))
-            done_count=$((i - start + 1))
-            elapsed=$((iter_end - start_time))
-            avg=$((elapsed / done_count))
-            remaining=$((avg * (n - done_count)))
-            eta_epoch=$((iter_end + remaining))
-            eta_local=$(date -d "@$eta_epoch" '+%F %T')
-            rem_h=$((remaining / 3600))
-            rem_m=$(((remaining % 3600) / 60))
-            rem_s=$((remaining % 60))
-            iter_start=$(date +%s)
+        ### ETA calculator
+        iter_end=\$(date +%s)
+        iter_dt=\$((iter_end - iter_start))
 
-            printf "Calculated in %d s. Remaining: %02d:%02d:%02d, ETA: %s\n" \
-                "$iter_dt" "$rem_h" "$rem_m" "$rem_s" "$eta_local"
+        done_count=\$((i - start + 1))
+        elapsed=\$((iter_end - start_time))
+        avg=\$((elapsed / done_count))
+        remaining=\$((avg * (n - done_count)))
+        eta_epoch=\$((iter_end + remaining))
+
+        eta_local=\$(date -d "@\$eta_epoch" '+%F %T')
+        rem_h=\$((remaining / 3600))
+        rem_m=\$(((remaining % 3600) / 60))
+        rem_s=\$((remaining % 60))
+
+        iter_start=\$(date +%s) # for next loop
+        ###
+        if ! grep -Eq "Have a nice day|Invalid ovlp_type" "aims.out"; then # something in aims.out failed
+            printf "ERROR: %s failed after %d s. ETA: %s. You will need to run it again later.\n" "\$d" "\$iter_dt" "\$eta_local"
+            #exit 1
         else
-            echo "ERROR: Calculation failed in $d"
+            printf "Calculated in %d s. Remaining: %02d:%02d:%02d, ETA: %s\n" "\$iter_dt" "\$rem_h" "\$rem_m" "\$rem_s" "\$eta_local"
         fi
+        
     else
         echo "Already completed"
     fi
 
+
     cd - >/dev/null
+
 done
 
-echo "DONE at $(date '+%F %T')"
+#check_zerofield.py \${dirs[0]}
+
+echo "DONE at \$(date '+%F %T')"
+
 EOF
