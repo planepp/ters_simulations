@@ -60,6 +60,7 @@ parser.add_argument("--intensity", type=str, default='yes', help="Whether intens
 parser.add_argument("--interpolate", action='store_true', help="Whether image should be interpolated between grid positions.")
 parser.add_argument("--dq", type=float, default=5e-3, help="dq used in the simulation")
 parser.add_argument("--efield", type=float, default=-1e-1, help="Electric field used in the simulation")
+parser.add_argument("--savepng", action='store_true', help="Save the figure as a PNG file")
 args = parser.parse_args()
 
 dq = args.dq
@@ -301,19 +302,20 @@ ax.grid(False)
 plt.tight_layout()
 
 # Title and Saving
-save_dir = Path("images")
-save_dir.mkdir(parents=True, exist_ok=True)
 if intensity_available:
     freq_str = ", ".join(f"{freqs[m]:.1f}" for m in new_mods)
-    modes_str = "-".join(str(m) for m in new_mods)
+    modes_str = "+".join(str(m) for m in new_mods)
     ax.set_title(rf'TERS image, modes {modes_str} ({freq_str} 1/cm)')
     outfile = save_dir / f"2d_m{modes_str}.png"
 else:
     ax.set_title(f'Grid for mode {mode_idx}')
     outfile = save_dir / f"grid_m{args.mode}.png"
 
-plt.savefig(outfile, dpi=300, bbox_inches='tight')
-print(f"Saved figure to {outfile}")
+if args.savepng:
+    save_dir = Path("images")
+    save_dir.mkdir(parents=True, exist_ok=True)
+    plt.savefig(outfile, dpi=300, bbox_inches='tight')
+    print(f"Saved figure to {outfile}")
 
 #plt.close()
 plt.show()
