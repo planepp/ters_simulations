@@ -7,10 +7,10 @@ import shutil
 import ast
 from ase.io import read, write
 
-sys.path.append(os.path.expanduser("~/.local/bin"))
-
-from finite_field_ters import FiniteFieldTERS
-from prepare_ters import (
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+from core.finite_field_ters import FiniteFieldTERS
+from core.prepare_ters import (
     h, masses, geo_unconstrained, geo_constrained,
     species_dir, symbols_constrained, symbols_unconstrained,
     find_species_file

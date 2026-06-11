@@ -35,16 +35,16 @@ from ters_img_simulator.utils.utils import *
 # Defining constants
 CUTOFF_FREQUENCY = 0
 E_TYPE = 2
-PEAK_WIDTH = 5  # Default 5, in matlab 7
+PEAK_WIDTH = 0.1  # Default 5, in matlab 7
 LAMBDA_0 = 532  # Default 532
 T = 1e-6  # Temperature, K
-TIP_WIDTH = np.array([1, 1, 1])*5
-# PHI, THETA, PSI = 0, 0, 0
+TIP_WIDTH = np.array([1, 1, 1])*20
+PHI, THETA, PSI = 0, 0, 0
 # PHI, THETA = 0, 0
 #X_COUNT, Y_COUNT = 64, 64  # Frame resolution
 #X_COUNT, Y_COUNT = 256, 256  # Frame resolution
-X_COUNT, Y_COUNT = 32, 32
-X_WIDTH, Y_WIDTH = 18, 18  # Frame width and height, A
+X_COUNT, Y_COUNT = 50, 50
+X_WIDTH, Y_WIDTH = 50, 50  # Frame width and height, A
 
 # Check if slurm CPUs are detected
 if 'SLURM_CPUS_PER_TASK' in os.environ:
@@ -73,8 +73,7 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
     PHI, THETA, PSI = molecule_rotation
 
     result = load_molecule(filename, PHI, THETA, PSI)
-    if result is None:
-        return None
+    if result is None: return None
     atom_polarizabilities, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R = result
     
     if plot_spectrum is not None:

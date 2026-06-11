@@ -80,10 +80,10 @@ def load_molecule(file_name, phi_0, theta_0, psi_0):
     # atom_pos_rotated = np.dot(atom_pos, R_atom_positions.T)
     atom_pos_rotated = np.dot(atom_pos, R)
 
-    atom_polarizabilities_rotated = np.zeros((3*atoms-6, 3*atoms, 3*atoms))
+    atom_polarizabilities_rotated = np.zeros((3*atoms-5, 3*atoms, 3*atoms))
 
     # Calculating atom_polarizabilities and applying rotation to them
-    for k in range(1, 3*N1-6*(1-sign(N2))+1):
+    for k in range(1, 3*N1-5*(1-sign(N2))+1):
         atom_amp = atom_an[:, k-1]
         for i in range(1, atoms + 1):
             atom_amp_i = atom_amp[3*i-3:3*i]

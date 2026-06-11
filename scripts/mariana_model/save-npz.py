@@ -20,9 +20,9 @@ Saved arrays
 
 Usage
 -----
-    python save_ters2d_data.py geometry.xyz
-    python save_ters2d_data.py geometry.xyz --scan_path ./my_scan --output data/result.npz
-    python save_ters2d_data.py geometry.xyz --dq 1e-2 --efield -5e-2
+    python save-npz.py geometry.xyz
+    python save-npz.py geometry.xyz --scan_path ./my_scan --output data/result.npz
+    python save-npz.py geometry.xyz --dq 1e-2 --efield -5e-2
 """
 
 from pathlib import Path
@@ -33,8 +33,9 @@ import os
 import numpy as np
 import ase.io
 
-sys.path.append(os.path.expanduser("~/.local/bin"))
-import finite_field_ters as ffters
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+import core.finite_field_ters as ffters
 
 
 # ---------------------------------------------------------------------------

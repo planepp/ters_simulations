@@ -44,11 +44,13 @@ def analytic_field(atom_polarizabilities, atoms, frequencies, E_type, atom_pos=N
             raise ValueError(f"Function analytic field only supports field types 0, 1, 2. Input values was {E_type}")
 
     # Calculating mode intensities and dipoles
-    mode_intensities = np.zeros((3*atoms-6, 2))
+    mode_intensities = np.zeros((3*atoms-5, 2))
     dipoles = np.tensordot(atom_polarizabilities, E_local, axes=([2], [0]))
     E_scattering = np.einsum('i,ij->j', E_local, dipoles.T)
 
     mode_intensities[:, 0] = frequencies
     mode_intensities[:, 1] = E_scattering**2
+    print(mode_intensities)
+    print(dipoles)
 
     return mode_intensities, dipoles

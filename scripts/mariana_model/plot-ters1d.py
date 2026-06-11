@@ -12,9 +12,9 @@ plt.style.use('seaborn-v0_8-darkgrid')
 
 import sys
 import os
-sys.path.append(os.path.expanduser("~/.local/bin"))
-import finite_field_ters as ffters
-
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+import core.finite_field_ters as ffters
 import ase
 
 

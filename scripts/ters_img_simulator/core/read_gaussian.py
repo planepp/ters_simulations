@@ -18,13 +18,29 @@ def read_gaussian(file_name):
         N2: int -- number of fixed atoms in a molecule
     """
 
-    def read_frequencies_red_masses(N1, N2, file):
+    def read_n_modes(file):
+        """
+        Reads the number of normal modes directly from the fchk file.
+
+        Returns:
+            n_modes: int
+        """
+        file.seek(0)
+        label = "Number of Normal Modes"
+        line = locate_label(label, file)
+        if line is None:
+            return None
+        return int(line.split()[-1])
+
+
+    def read_frequencies_red_masses(N1, N2, n_modes, file):
         """
         Reads and returns vibrational frequencies of each mode and reduced masses.
         
         Arguments:
             N1: int -- the number of free atoms of a molecule
             N2: int -- the number of fixed atoms of a molecule
+            n_modes: int -- the number of normal modes
 
         Returns:
             frequencies: np.ndarray
@@ -37,17 +53,13 @@ def read_gaussian(file_name):
         
         line = file.readline()
         line_data = [float(element) for element in line.split()]
-        if (N2 == 0):
-            frequencies, current_line, current_element = read_n_elements(3*(N1-2), 0, line_data, file)
-            red_masses, _, _ = read_n_elements(3*(N1-2), current_element, current_line, file)
-        else:
-            frequencies, current_line, current_element = read_n_elements(3*N1, 0, line_data, file)
-            red_masses, _, _ = read_n_elements(3*N1, current_element, current_line, file)
-        
+        frequencies, current_line, current_element = read_n_elements(n_modes, 0, line_data, file)
+        red_masses, _, _ = read_n_elements(n_modes, current_element, current_line, file)
+
         return frequencies, red_masses
  
 
-    def read_atom_an(N1, N2, file):
+    def read_atom_an(N1, N2, n_modes, file):
         """
         Reads and returns Vib-Modes.
 
@@ -62,12 +74,12 @@ def read_gaussian(file_name):
         line = file.readline()
         line_data = [float(element) for element in line.split()]
         if (N2 == 0):
-            atom_an, _, _ = read_n_elements(3*N1*3*(N1-2), 0, line_data, file)
-            atom_an = atom_an.reshape((3*(N1-2), 3*N1))
+            atom_an, _, _ = read_n_elements(3*N1*n_modes, 0, line_data, file)
+            atom_an = atom_an.reshape((n_modes, 3*N1))
             atom_an = atom_an.T
         else:
-            atom_an, _, _ = read_n_elements(3*N1*3*(N1-2), 0, line_data, file)
-            atom_an = atom_an.reshape((3*N1, 3*(N1+N2)))
+            atom_an, _, _ = read_n_elements(3*N1*n_modes, 0, line_data, file)
+            atom_an = atom_an.reshape((n_modes, 3*(N1+N2)))
             atom_an = atom_an.T
 
         return atom_an
@@ -213,15 +225,17 @@ def read_gaussian(file_name):
 
     # Reading the data from the Gaussian ouput file
     with open(file_name, 'r') as file:
-        #N1, N2 = read_molecule_constituent(file)
         N1_N2 = read_molecule_constituent(file)
         if N1_N2 is None:
             return None
         N1, N2 = N1_N2
 
-        #frequencies, red_masses = read_frequencies_red_masses(N1, N2, file)
-        frequencies_red_masses = read_frequencies_red_masses(N1, N2, file)
-        atom_an = read_atom_an(N1, N2, file)
+        n_modes = read_n_modes(file)
+        if n_modes is None:
+            return None
+
+        frequencies_red_masses = read_frequencies_red_masses(N1, N2, n_modes, file)
+        atom_an = read_atom_an(N1, N2, n_modes, file)
         polar_derivatives = read_polar_derivatives(N1, N2, file)
         atom_positions = read_atom_positions(N1, N2, file)
         atomic_numbers = read_atomic_numbers(N1, N2, file)

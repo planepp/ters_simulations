@@ -35,16 +35,16 @@ from ters_img_simulator.utils.utils import *
 # Defining constants
 CUTOFF_FREQUENCY = 0
 E_TYPE = 2
-PEAK_WIDTH = 5  # Default 5, in matlab 7
+PEAK_WIDTH = 0.1  # Default 5, in matlab 7
 LAMBDA_0 = 532  # Default 532
 T = 1e-6  # Temperature, K
-TIP_WIDTH = np.array([1, 1, 1])*5
-# PHI, THETA, PSI = 0, 0, 0
+TIP_WIDTH = np.array([1, 1, 1])*20
+PHI, THETA, PSI = 0, 0, 0
 # PHI, THETA = 0, 0
 #X_COUNT, Y_COUNT = 64, 64  # Frame resolution
 #X_COUNT, Y_COUNT = 256, 256  # Frame resolution
 X_COUNT, Y_COUNT = 25, 25
-X_WIDTH, Y_WIDTH = 25, 25  # Frame width and height, A
+X_WIDTH, Y_WIDTH = 10, 10  # Frame width and height, A
 
 # Check if slurm CPUs are detected
 if 'SLURM_CPUS_PER_TASK' in os.environ:
@@ -73,8 +73,7 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
     PHI, THETA, PSI = molecule_rotation
 
     result = load_molecule(filename, PHI, THETA, PSI)
-    if result is None:
-        return None
+    if result is None: return None
     atom_polarizabilities, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R = result
     
     if plot_spectrum is not None:
@@ -99,6 +98,7 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
                 tip_xyz = np.array([x_pos[dx], y_pos[dy], 3])
                 mode_intensities, dipoles = \
                     analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, atom_pos, R, tip_xyz, TIP_WIDTH)
+
             """
             tip_xyz = np.array([x_pos[dx], y_pos[dy], z])
             mode_intensities, dipoles = \
