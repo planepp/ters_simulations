@@ -81,14 +81,14 @@ fig, ax = plt.subplots(figsize=(6, 5))
 interp_method = "bilinear" if args.interpolate else "nearest"
 
 im = ax.imshow(
-    z.T,
+    z,
     cmap="viridis",
     origin="lower",
     extent=[x.min(), x.max(), y.min(), y.max()],
     aspect="auto",
     interpolation=interp_method
 )
-plt.colorbar(im, ax=ax, label="TERS intensity")
+#plt.colorbar(im, ax=ax, label="TERS intensity")
 
 if args.molecule:
     ax.scatter(
