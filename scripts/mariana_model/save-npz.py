@@ -226,7 +226,7 @@ def main():
         frequencies    = np.array(saved_freqs),
         mode_indices   = np.array(saved_indices),
         tip_height     = np.float64(tip_height if tip_height is not None else np.nan),
-        model          = "model_2"
+        model          = "mariana_model"
     )
     for m, (x_u, y_u, grid) in zip(saved_indices, per_mode_grids):
         save_dict[f"x_pos_{m:03d}"]    = x_u
