@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 from core.load_molecule import load_molecule
 from core.analytic_field import analytic_field
+from core.numerical_field import numerical_field
 from core.spectrum_real import spectrum_real
 import time as time
 from pathlib import Path
@@ -48,7 +49,7 @@ PHI, THETA, PSI = 0, 0, 0
 #X_COUNT, Y_COUNT = 64, 64  # Frame resolution
 #X_COUNT, Y_COUNT = 256, 256  # Frame resolution
 X_COUNT, Y_COUNT = 25, 25
-X_WIDTH, Y_WIDTH = 10, 10  # Frame width and height, A
+X_WIDTH, Y_WIDTH = 15, 10  # Frame width and height, A
 
 # Check if slurm CPUs are detected
 if 'SLURM_CPUS_PER_TASK' in os.environ:
@@ -90,10 +91,23 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
     z = atom_pos[:, 2].max() + 3  # Tips distance from top atom of a molecule, A
 
     spectrums = np.zeros((X_COUNT, Y_COUNT, wavenumber_range.size))
+    data = np.loadtxt("E_local.txt")
+
+    coords = data[:, :3]
+    field = data[:, 3:6]
+
+    tree = cKDTree(coords)
 
     for dx in range(X_COUNT):
         for dy in range(Y_COUNT):
-            
+            shift = np.array([x_pos[dx], y_pos[dy], 6.0])
+
+            # shift molecule into tip frame
+            atom_pos_shifted = atom_pos_rotated + shift
+            E_loc = sample_field_on_atoms_fast(atom_pos_shifted, tree, field)
+            mode_intensities, dipoles = numerical_field(atom_polarizabilities, atoms, frequencies, E_loc, N1)
+
+            '''
             # Currently field types 0 and 1 are not used, so condition statement is commented out
             if (E_TYPE == 0):
                 mode_intensities, dipoles = \
@@ -102,7 +116,7 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
                 tip_xyz = np.array([x_pos[dx], y_pos[dy], 3])
                 mode_intensities, dipoles = \
                     analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, N1, atom_pos, R, tip_xyz, TIP_WIDTH)
-
+            '''
             """
             tip_xyz = np.array([x_pos[dx], y_pos[dy], z])
             mode_intensities, dipoles = \
@@ -115,6 +129,11 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
         spectrums[:, :, i] = spectrums[:, :, i].T
 
     return atom_pos_rotated, atomic_numbers, x_pos, y_pos, wavenumber_range, spectrums, filename
+
+from scipy.spatial import cKDTree
+def sample_field_on_atoms_fast(atom_pos, tree, field):
+    _, idx = tree.query(atom_pos)
+    return field[idx]
 
 
 def save_ters_data(atom_pos, atomic_numbers, x_pos, y_pos, frequencies, spectrums, filename, save_path):
