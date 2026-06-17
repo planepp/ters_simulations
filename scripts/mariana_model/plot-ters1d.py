@@ -76,7 +76,6 @@ data_ters = ffters.analyze_1d_ters(
 
 wns = data_ters['wavenumbers']
 its = data_ters['intensity']
-np.savetxt("rightlobe.txt", its)
 
 if args.xlim:
     xlims = args.xlim

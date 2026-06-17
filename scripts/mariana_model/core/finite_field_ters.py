@@ -424,7 +424,7 @@ def analyze_1d_ters(working_dir: Path, fn_wavenumbers: Path, efield: float, dq: 
     intensity = dadq**2
     mode_max = np.max(intensity)
     #intensity = intensity / mode_max
-    #print(intensity)
+    #print(mode_max)
 
     # read in wavenumbers
     wn = pickle.load(open(working_dir / fn_wavenumbers, 'rb'))

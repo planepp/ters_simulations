@@ -13,6 +13,7 @@ parser.add_argument("--modes", type=int, nargs='+', default=None, help="Addition
 parser.add_argument("--molecule", action='store_true', help="Overlay molecule on top of the TERS map")
 parser.add_argument("--interpolate", action='store_true', help="Interpolate between grid positions")
 parser.add_argument("--savepng", action='store_true', help="Save the figure as a PNG file")
+parser.add_argument("--rotate", type=float, default=0.0, help="Rotate the TERS map and molecule by this angle in degrees (counterclockwise)")
 args = parser.parse_args()
 
 # --------------------
@@ -73,6 +74,43 @@ print(f"y_pos : {y.shape},  range [{y.min():.2f}, {y.max():.2f}] Å")
 print(f"Summing : {all_modes}")
 for m in all_modes:
     print(f"  Mode {m}: {freq_of(m):.3f} cm⁻¹")
+
+# --------------------
+# Rotate grid and molecule
+# --------------------
+if args.rotate != 0.0:
+    angle_rad = np.deg2rad(args.rotate)
+    cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+    R = np.array([[cos_a, -sin_a],
+                  [sin_a,  cos_a]])
+
+    # Rotate molecule positions (x, y only)
+    positions = positions.copy()
+    positions[:, :2] = (R @ positions[:, :2].T).T
+
+    # Find new grid extent from rotated corners
+    corners = np.array([
+        [x.min(), y.min()],
+        [x.max(), y.min()],
+        [x.min(), y.max()],
+        [x.max(), y.max()],
+    ])
+    rotated_corners = (R @ corners.T).T
+    x_min, y_min = rotated_corners.min(axis=0)
+    x_max, y_max = rotated_corners.max(axis=0)
+
+    # New regular grid with same number of points
+    x_new = np.linspace(x_min, x_max, len(x))
+    y_new = np.linspace(y_min, y_max, len(y))
+
+    # Back-map new grid points into original frame and interpolate
+    X_new, Y_new = np.meshgrid(x_new, y_new, indexing='ij')
+    coords_orig = (R.T @ np.stack([X_new.ravel(), Y_new.ravel()])).T
+    interp_fn = RegularGridInterpolator(
+        (x, y), z, method='linear', bounds_error=False, fill_value=0.0
+    )
+    z = interp_fn(coords_orig).reshape(X_new.shape)
+    x, y = x_new, y_new
 
 # --------------------
 # Build figure
