@@ -1,0 +1,12 @@
+xc                 	pbe
+spin                    none
+relativistic       	atomic_zora  scalar
+charge             	0.
+use_dipole_correction	.true.
+output_level       	MD_light
+output			dipole
+k_grid                  1 1 1
+vdw_correction_hirshfeld
+output_level            MD_light
+sc_accuracy_rho         1e-06
+

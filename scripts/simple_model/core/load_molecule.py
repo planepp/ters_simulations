@@ -26,7 +26,8 @@ def load_molecule(file_name, phi_0, theta_0, psi_0):
     red_masses, frequencies, polar_derivatives, atom_an, atom_pos, atomic_numbers, N1, N2 = result  
 
     atom_pos = unit_scale*atom_pos.reshape(-1, 3)  # Grouping the positions 
-    atoms = N1 + N2  # Number of atoms
+    #atoms = N1 + N2  # Number of atoms
+    atoms = N1  # Number of atoms
 
     polar_deriv_x = np.zeros((3 * atoms, 3 * atoms))
     polar_deriv_y = np.zeros((3 * atoms, 3 * atoms))
@@ -85,11 +86,11 @@ def load_molecule(file_name, phi_0, theta_0, psi_0):
     else: 
         n_modes = 3*N1 -6 # general case
 
-    atom_polarizabilities_rotated = np.zeros((n_modes, 3*atoms, 3*atoms))
+    atom_polarizabilities_rotated = np.zeros((n_modes, 3*N1, 3*N1))
     # Calculating atom_polarizabilities and applying rotation to them
-    for k in range(1, n_modes*(1-sign(N2))+1):
+    for k in range(1, n_modes+1):
         atom_amp = atom_an[:, k-1]
-        for i in range(1, atoms + 1):
+        for i in range(1, N1 + 1):
             atom_amp_i = atom_amp[3*i-3:3*i]
 
             polar_derivative = np.array([
@@ -107,4 +108,4 @@ def load_molecule(file_name, phi_0, theta_0, psi_0):
             polar_atom_rotated_i = np.dot(np.dot(R.T, atom_polarizabilities), R) * unit_scale**2
             atom_polarizabilities_rotated[k-1, 3*i-3:3*i, 3*i-3:3*i] = polar_atom_rotated_i
 
-    return atom_polarizabilities_rotated, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R, N1
+    return atom_polarizabilities_rotated, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R, N1, N2

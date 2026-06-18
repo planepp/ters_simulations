@@ -44,8 +44,8 @@ def read_gaussian(file_name):
             frequencies, current_line, current_element = read_n_elements(3*(N1-2), 0, line_data, file)
             red_masses, _, _ = read_n_elements(3*(N1-2), current_element, current_line, file)
         else:
-            frequencies, current_line, current_element = read_n_elements(3*N1, 0, line_data, file)
-            red_masses, _, _ = read_n_elements(3*N1, current_element, current_line, file)
+            frequencies, current_line, current_element = read_n_elements(3*(N1-2), 0, line_data, file)
+            red_masses, _, _ = read_n_elements(3*(N1-2), current_element, current_line, file)
 
         return frequencies, red_masses
  
@@ -73,8 +73,8 @@ def read_gaussian(file_name):
             atom_an = atom_an.reshape((3*(N1-2), 3*N1))
             atom_an = atom_an.T
         else:
-            atom_an, _, _ = read_n_elements(3*N1*3*(N1-2), 0, line_data, file)
-            atom_an = atom_an.reshape((3*N1, 3*(N1+N2)))
+            atom_an, _, _ = read_n_elements(3*(N1)*3*(N1-2), 0, line_data, file)
+            atom_an = atom_an.reshape((3*(N1-2), 3*(N1)))
             atom_an = atom_an.T
 
         return atom_an
@@ -94,7 +94,7 @@ def read_gaussian(file_name):
         
         line = file.readline()
         line_data = [float(element) for element in line.split()]
-        polar_derivatives, _, _ = read_n_elements(6*3*(N1+N2), 0, line_data, file)
+        polar_derivatives, _, _ = read_n_elements(6*3*(N1), 0, line_data, file)
 
         return polar_derivatives
 
@@ -220,13 +220,11 @@ def read_gaussian(file_name):
 
     # Reading the data from the Gaussian ouput file
     with open(file_name, 'r') as file:
-        #N1, N2 = read_molecule_constituent(file)
         N1_N2 = read_molecule_constituent(file)
         if N1_N2 is None:
             return None
         N1, N2 = N1_N2
 
-        #frequencies, red_masses = read_frequencies_red_masses(N1, N2, file)
         frequencies_red_masses = read_frequencies_red_masses(N1, N2, file)
         atom_an = read_atom_an(N1, N2, file)
         polar_derivatives = read_polar_derivatives(N1, N2, file)
@@ -237,5 +235,4 @@ def read_gaussian(file_name):
     if any(parameter is None for parameter in parameters):
         return None
     frequencies, red_masses = frequencies_red_masses
-
     return red_masses, frequencies, polar_derivatives, atom_an, atom_positions, atomic_numbers, N1, N2

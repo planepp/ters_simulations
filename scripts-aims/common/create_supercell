@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+from ase.io import read, write
+from ase.geometry import cellpar_to_cell
+import sys
+
+def orthogonalize(infile, outfile):
+    atoms = read(infile)
+    original_cell = atoms.cell
+
+    # Get the lattice vectors
+    a1, a2, a3 = original_cell
+
+    # Convert to orthogonal (forcing 90° angles)
+    orthogonal_cell = cellpar_to_cell([
+        a1, a2, a3, 90, 90, 90
+    ])
+
+    atoms.set_cell(orthogonal_cell, scale_atoms=True)
+    write(outfile, atoms)
+
+def sort_by_element_z(infile, outfile):
+    structure = read(infile)
+    # Sort by element, then by z within each element
+    sorted_indices = sorted(
+        range(len(structure)),
+        key=lambda i: (structure[i].symbol, structure[i].position[2])
+    )
+    sorted_structure = structure[sorted_indices]
+    write(outfile, sorted_structure)
+
+def create_supercell(smallcell_file, repeat_factors):
+    # Read the initial structure
+    initial_slab = read(smallcell_file)
+    supercell = initial_slab.repeat(repeat_factors)
+
+    # Construct output filename automatically
+    nx, ny, nz = repeat_factors
+    supercell_file = f"{smallcell_file}_{nx}{ny}{nz}"
+
+    # Write and process
+    write(supercell_file, supercell)
+    sort_by_element_z(supercell_file,supercell_file)
+    orthogonalize(supercell_file,supercell_file)  # Comment if needed
+
+    print(f"Created supercell → {supercell_file}")
+
+if __name__ == "__main__":
+    # Expect: create_supercell <smallcell> nx ny nz
+    if len(sys.argv) != 5:
+        print("Usage: create_supercell <smallcell> nx ny nz")
+        sys.exit(1)
+
+    smallcell_file = sys.argv[1]
+    repeat_factors = (int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+    create_supercell(smallcell_file, repeat_factors)
+

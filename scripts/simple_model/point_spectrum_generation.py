@@ -48,8 +48,8 @@ PHI, THETA, PSI = 0, 0, 0
 # PHI, THETA = 0, 0
 #X_COUNT, Y_COUNT = 64, 64  # Frame resolution
 #X_COUNT, Y_COUNT = 256, 256  # Frame resolution
-X_COUNT, Y_COUNT = 25, 25
-X_WIDTH, Y_WIDTH = 15, 10  # Frame width and height, A
+X_COUNT, Y_COUNT = 28, 28
+X_WIDTH, Y_WIDTH = 28, 28  # Frame width and height, A
 
 # Check if slurm CPUs are detected
 if 'SLURM_CPUS_PER_TASK' in os.environ:
@@ -79,7 +79,7 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
 
     result = load_molecule(filename, PHI, THETA, PSI)
     if result is None: return None
-    atom_polarizabilities, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R, N1 = result
+    atom_polarizabilities, atoms, frequencies, atom_pos, atom_pos_rotated, atomic_numbers, R, N1, N2 = result
     
     if plot_spectrum is not None:
         wavenumber_range = np.array(plot_spectrum)
@@ -91,32 +91,30 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
     z = atom_pos[:, 2].max() + 3  # Tips distance from top atom of a molecule, A
 
     spectrums = np.zeros((X_COUNT, Y_COUNT, wavenumber_range.size))
+    '''
     data = np.loadtxt("E_local.txt")
-
     coords = data[:, :3]
     field = data[:, 3:6]
-
     tree = cKDTree(coords)
+    '''
 
     for dx in range(X_COUNT):
         for dy in range(Y_COUNT):
-            shift = np.array([x_pos[dx], y_pos[dy], 6.0])
 
+            #shift = np.array([x_pos[dx], y_pos[dy], 6.0])
             # shift molecule into tip frame
-            atom_pos_shifted = atom_pos_rotated + shift
-            E_loc = sample_field_on_atoms_fast(atom_pos_shifted, tree, field)
-            mode_intensities, dipoles = numerical_field(atom_polarizabilities, atoms, frequencies, E_loc, N1)
+            #atom_pos_shifted = atom_pos_rotated + shift
+            #E_loc = sample_field_on_atoms_fast(atom_pos_shifted, tree, field)
+            #mode_intensities, dipoles = numerical_field(atom_polarizabilities, atoms, frequencies, E_loc, N1)
 
-            '''
             # Currently field types 0 and 1 are not used, so condition statement is commented out
             if (E_TYPE == 0):
                 mode_intensities, dipoles = \
-                    analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, N1)
+                    analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, N1, N2)
             elif (E_TYPE == 1 or E_TYPE == 2):
                 tip_xyz = np.array([x_pos[dx], y_pos[dy], 3])
                 mode_intensities, dipoles = \
-                    analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, N1, atom_pos, R, tip_xyz, TIP_WIDTH)
-            '''
+                    analytic_field(atom_polarizabilities, atoms, frequencies, E_TYPE, N1, N2, atom_pos, R, tip_xyz, TIP_WIDTH)
             """
             tip_xyz = np.array([x_pos[dx], y_pos[dy], z])
             mode_intensities, dipoles = \
@@ -129,12 +127,6 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
         spectrums[:, :, i] = spectrums[:, :, i].T
 
     return atom_pos_rotated, atomic_numbers, x_pos, y_pos, wavenumber_range, spectrums, filename
-
-from scipy.spatial import cKDTree
-def sample_field_on_atoms_fast(atom_pos, tree, field):
-    _, idx = tree.query(atom_pos)
-    return field[idx]
-
 
 def save_ters_data(atom_pos, atomic_numbers, x_pos, y_pos, frequencies, spectrums, filename, save_path):
     """
