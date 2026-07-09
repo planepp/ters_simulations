@@ -42,6 +42,7 @@ species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
 fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
+#fn_tip_derivative = Path('dipole.cube'),
 #fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
 fn_elsi_restart = None,
 fn_geometry = Path(geo_unconstrained),
@@ -89,24 +90,24 @@ def read_grid_coords(mode_idx: int, base_dir: Path = Path("ters2d")):
 
 # Option B: define manually
 # -- Single point
-xs, ys = [1], [0]
+#xs, ys = [1], [0]
 
 # -- Single line
 #xs = np.linspace(-6, -1, 4)
 #ys = np.zeros(4)
 
 # -- Grid
-# x = np.linspace(0, 15, 10)
-# y = np.linspace(-1.5, -15, 9)
-# X, Y = np.meshgrid(x, y)
-# xs, ys = X.ravel(), Y.ravel()
+x = np.linspace(-15, 15, 15)
+y = np.linspace(-15, 15, 15)
+X, Y = np.meshgrid(x, y)
+xs, ys = X.ravel(), Y.ravel()
 
 
 ### Run 2D scan
 scan_range = (-15, 15, -15, 15)
 run2d = True
 if run2d:
-    mode_indices = [9]
+    mode_indices = [0]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             working_dir = Path(f'ters2d'),

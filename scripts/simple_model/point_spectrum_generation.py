@@ -43,12 +43,12 @@ E_TYPE = 2
 PEAK_WIDTH = 0.1  # Default 5, in matlab 7
 LAMBDA_0 = 532  # Default 532
 T = 1e-6  # Temperature, K
-TIP_WIDTH = np.array([1, 1, 1])*20
+TIP_WIDTH = np.array([1, 1, 1])*5
 PHI, THETA, PSI = 0, 0, 0
 # PHI, THETA = 0, 0
 #X_COUNT, Y_COUNT = 64, 64  # Frame resolution
-#X_COUNT, Y_COUNT = 256, 256  # Frame resolution
-X_COUNT, Y_COUNT = 28, 28
+X_COUNT, Y_COUNT = 256, 256  # Frame resolution
+#X_COUNT, Y_COUNT = 28, 28
 X_WIDTH, Y_WIDTH = 28, 28  # Frame width and height, A
 
 # Check if slurm CPUs are detected
