@@ -29,6 +29,9 @@ args = parser.parse_args()
 # load data
 # --------------------
 data = np.load(args.npzfile)
+print("Model:", data['model'])
+print("Mode indices available:", data['mode_indices'])
+
 freqs = data["frequencies"]
 mode_indices = data["mode_indices"]
 positions = data["atom_pos"]
@@ -143,7 +146,7 @@ xmax, ymax = corners.max(axis=0)
 fig, ax = plt.subplots(figsize=(6, 5))
 
 im = ax.imshow(
-    z,
+    z.T,
     cmap="viridis",
     origin="lower",
     extent=[xmin, xmax, ymin, ymax],
