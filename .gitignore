@@ -1,3 +1,8 @@
 docs/_build/
-calculations/
 scripts/mariana_model/core/__pycache__/
+calculations/fchks
+calculations/gauss-mahti
+calculations/trash-mahti
+calculations/tests-mahti
+calculations/znpcslab_rlx-mahti
+calculations/fepc
