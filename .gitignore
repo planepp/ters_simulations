@@ -1,6 +1,7 @@
 docs/_build/
 scripts/mariana_model/core/__pycache__/
 
+# Mahti
 calculations/fchks
 calculations/gauss-mahti
 calculations/trash-mahti
