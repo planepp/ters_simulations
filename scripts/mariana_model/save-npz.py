@@ -192,14 +192,18 @@ def main():
         coords_map = read_grid_coords(mode_dir)
 
         print(f"  Mode {m:3d}: running ffters.analyze_2d_ters ...")
-        ters = ffters.analyze_2d_ters(
-            working_dir=working_dir,
-            mode_idx=[m],
-            efield=args.efield,
-            dq=args.dq,
-            periodic=periodic,
-            no_groundstate=True,
-        )
+        try:
+            ters = ffters.analyze_2d_ters(
+                working_dir=working_dir,
+                mode_idx=[m],
+                efield=args.efield,
+                dq=args.dq,
+                periodic=periodic,
+                no_groundstate=True,
+            )
+        except FileNotFoundError as e:
+            print(f"         Missing file for mode {m:3d}, skipping: {e}")
+            continue
         # ters["intensity"] is a list with one entry per requested mode_idx.
         # We always pass one mode, so take [0] to get (n_tippos,) or (n_tippos, 3)
         intensity  = np.array(ters["intensity"][0])
