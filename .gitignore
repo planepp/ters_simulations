@@ -1,13 +1,3 @@
 docs/_build/
 scripts/mariana_model/core/__pycache__/
-
-# Mahti
-calculations/fchks
-calculations/gauss-mahti
-calculations/trash-mahti
-calculations/tests-mahti
-calculations/znpcslab_rlx-mahti
-calculations/fepc/ag111/create_geometries
-calculations/fepc/ag111/hollow/rlx/
-calculations/fepc/ag111/bridge/rlx/
-calculations/fepc/ag111/top/rlx/
+calculations/
