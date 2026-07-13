@@ -144,6 +144,7 @@ xmax, ymax = corners.max(axis=0)
 # plot
 # --------------------
 fig, ax = plt.subplots(figsize=(6, 5))
+if data['model'] == 'simple model': z = z.T # rotate x,y axis with Mariana model (double trasposing)
 
 im = ax.imshow(
     z.T,
