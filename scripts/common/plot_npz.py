@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 from pathlib import Path
+import sys
 
 from ase.data.colors import jmol_colors
 from ase.data import covalent_radii
@@ -14,8 +15,8 @@ from scipy.interpolate import RegularGridInterpolator
 # --------------------
 parser = argparse.ArgumentParser()
 
-parser.add_argument("npzfile", type=str)
-parser.add_argument("mode", type=int)
+parser.add_argument("npzfile", type=str, nargs="?", default=None)
+parser.add_argument("mode", type=int, nargs="?", default=None)
 parser.add_argument("--modes", type=int, nargs='+', default=None)
 parser.add_argument("--molecule", action="store_true")
 parser.add_argument("--interpolate", action="store_true")
@@ -24,6 +25,12 @@ parser.add_argument("--rotate", type=float, default=0.0)
 
 args = parser.parse_args()
 
+# --------------------
+# npzfile: ask if missing
+# --------------------
+if args.npzfile is None:
+    print("No npzfile provided. Usage: plot_npz.py <npzfile> <mode> [options]")
+    sys.exit(1)
 
 # --------------------
 # load data
@@ -37,8 +44,20 @@ mode_indices = data["mode_indices"]
 positions = data["atom_pos"]
 numbers = data["atomic_numbers"]
 
+# --------------------
+# mode: check missing / invalid
+# --------------------
+if args.mode is None or args.mode not in mode_indices:
+    print("No valid mode provided. Please choose a mode from the list above.")
+    sys.exit(1)
+
 all_modes = [args.mode] + (args.modes or [])
 
+# --------------------
+# mode: ask if missing
+# --------------------
+if args.mode is None or args.mode not in mode_indices:
+    print("No mode provided. Please enter a mode in the mode available list above. \n")
 
 def get_grid(m):
     return (
@@ -144,7 +163,16 @@ xmax, ymax = corners.max(axis=0)
 # plot
 # --------------------
 fig, ax = plt.subplots(figsize=(6, 5))
-if data['model'] == 'simple model': z = z.T # rotate x,y axis with Mariana model (double trasposing)
+if data['model'] == 'simple model':
+    z = z.T  # rotate x,y axis with Mariana model (double transposing)
+
+# for plotting 1D arrays: pad the singular axis so imshow doesn't get a zero-range extent
+if ymin == ymax:
+    ymin, ymax = ymin - 0.5, ymax + 0.5
+    z = np.tile(z[:, 0:1], (1, 2))
+elif xmin == xmax:
+    xmin, xmax = xmin - 0.5, xmax + 0.5
+    z = np.tile(z[0:1, :], (2, 1))
 
 im = ax.imshow(
     z.T,
@@ -154,6 +182,7 @@ im = ax.imshow(
     aspect="auto",
     interpolation="bilinear" if args.interpolate else "nearest"
 )
+fig.colorbar(im, ax=ax)
 
 
 # --------------------
