@@ -21,7 +21,6 @@ parser.add_argument("--modes", type=int, nargs='+', default=None)
 parser.add_argument("--molecule", action="store_true")
 parser.add_argument("--interpolate", action="store_true")
 parser.add_argument("--savepng", action="store_true")
-parser.add_argument("--rotate", type=float, default=0.0)
 
 args = parser.parse_args()
 
@@ -93,70 +92,10 @@ for m in (args.modes or []):
 
 
 # --------------------
-# rotation helper
+# extent
 # --------------------
-def rotate_xy(x, y, deg):
-    t = np.deg2rad(deg)
-    c, s = np.cos(t), np.sin(t)
-    return c * x - s * y, s * x + c * y
-
-
-# --------------------
-# build full coordinate grid
-# --------------------
-X, Y = np.meshgrid(x, y, indexing="ij")
-
-coords = np.stack([X.ravel(), Y.ravel()], axis=-1)
-
-
-# --------------------
-# rotation matrix
-# --------------------
-theta = np.deg2rad(args.rotate)
-c, s = np.cos(theta), np.sin(theta)
-R = np.array([[c, -s],
-              [s,  c]])
-
-
-# --------------------
-# rotate molecule
-# --------------------
-if args.rotate != 0.0:
-    positions = positions.copy()
-    positions[:, :2] = positions[:, :2] @ R.T
-
-
-# --------------------
-# rotate IMAGE DATA (IMPORTANT PART)
-# --------------------
-if args.rotate != 0.0:
-    interp = RegularGridInterpolator(
-        (x, y),
-        z,
-        method="linear",
-        bounds_error=False,
-        fill_value=0.0
-    )
-
-    rot_coords = coords @ R.T
-    z = interp(rot_coords).reshape(z.shape)
-
-
-# --------------------
-# rotated extent (so corners are filled correctly)
-# --------------------
-corners = np.array([
-    [x.min(), y.min()],
-    [x.min(), y.max()],
-    [x.max(), y.min()],
-    [x.max(), y.max()]
-])
-
-if args.rotate != 0.0:
-    corners = corners @ R.T
-
-xmin, ymin = corners.min(axis=0)
-xmax, ymax = corners.max(axis=0)
+xmin, xmax = x.min(), x.max()
+ymin, ymax = y.min(), y.max()
 
 
 # --------------------
@@ -221,7 +160,7 @@ if args.savepng:
     outdir = Path("images")
     outdir.mkdir(exist_ok=True, parents=True)
 
-    outfile = outdir / f"TERS_modes_{mode_str}_rot{args.rotate:.0f}.png"
+    outfile = outdir / f"TERS_modes_{mode_str}.png"
     plt.savefig(outfile, dpi=300, bbox_inches="tight")
     print(f"Saved to {outfile}")
 
