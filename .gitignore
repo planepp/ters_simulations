@@ -1,3 +1,4 @@
 docs/_build/
 scripts/mariana_model/core/__pycache__/
 calculations/
+scripts/simple_model/utils/__pycache__/
