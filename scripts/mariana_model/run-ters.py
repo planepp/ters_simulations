@@ -27,8 +27,7 @@ def zero_homogeneous_field(geom_path):
         f.writelines(lines)
 
 
-storage_dir = Path('~') # Triton
-# storage_dir = Path('/projappl/project_2001912') # CSC
+storage_dir = Path.cwd()  # tip cube files live alongside control.in / geometry.in
 
 ters = FiniteFieldTERS(
 hessian = h,
@@ -41,8 +40,8 @@ fn_control_template = Path.cwd() / 'control.in',
 species_dir = Path(species_dir),
 #fn_tip_groundstate = Path('zeros.cube'),
 fn_tip_groundstate = None,
-fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
-#fn_tip_derivative = Path('dipole.cube'),
+#fn_tip_derivative = Path('tipA_05_vh_ft_0049_3221meV_x1000.cube'),
+fn_tip_derivative = Path('mygaussian_w2.cube'),
 #fn_elsi_restart = Path('D_spin_01_kpt_000001.csc'),
 fn_elsi_restart = None,
 fn_geometry = Path(geo_unconstrained),
@@ -97,17 +96,16 @@ def read_grid_coords(mode_idx: int, base_dir: Path = Path("ters2d")):
 #ys = np.zeros(4)
 
 # -- Grid
-x = np.linspace(-15, 15, 15)
-y = np.linspace(-15, 15, 15)
+x = np.linspace(-10, 10, 20)
+y = np.linspace(-10, 10, 20)
 X, Y = np.meshgrid(x, y)
 xs, ys = X.ravel(), Y.ravel()
 
 
 ### Run 2D scan
-scan_range = (-15, 15, -15, 15)
 run2d = True
 if run2d:
-    mode_indices = [0]
+    mode_indices = [35, 36, 37, 38, 39]
     for idx_mode in mode_indices:
         ters.run_2d_grid(
             working_dir = Path(f'ters2d'),
