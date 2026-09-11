@@ -338,9 +338,34 @@ class FiniteFieldTERS:
             lines = []
         # positions
         symbols = self.system.get_chemical_symbols()
+        # per-atom tags (initial_charge, initial_moment, constrain_relaxation, ...) are attached to
+        # the *previous* atom line in geometry.in, so they must be re-emitted right after each
+        # 'atom' line, otherwise they are silently dropped when the geometry is regenerated.
+        charges = self.system.get_initial_charges()
+        magmoms = self.system.get_initial_magnetic_moments()
+        # figure out which cartesian directions are constrained (FixAtoms / FixCartesian) per atom
+        fixed_mask = np.zeros((len(self.system), 3), dtype=bool)
+        for constraint in self.system.constraints:
+            # FixAtoms: fixes all directions for the given indices
+            if hasattr(constraint, 'index'):
+                fixed_mask[constraint.index, :] = True
+            # FixCartesian: fixes selected directions for the given indices
+            if hasattr(constraint, 'a') and hasattr(constraint, 'mask'):
+                fixed_mask[constraint.a, :] |= np.asarray(constraint.mask, dtype=bool)
+
         #lines += [f'atom {r[0]:.16f} {r[1]:.16f} {r[2]:.16f} {s}\n' for r, s in zip(geometry, symbols)]
-        for r, s in zip(geometry, symbols):
+        for i, (r, s) in enumerate(zip(geometry, symbols)):
             lines.append(f'atom {r[0]:.16f} {r[1]:.16f} {r[2]:.16f} {s}\n')
+            if charges[i] != 0:
+                lines.append(f'    initial_charge {charges[i]:.6f}\n')
+            if magmoms[i] != 0:
+                lines.append(f'    initial_moment {magmoms[i]:.6f}\n')
+            if fixed_mask[i].all():
+                lines.append('    constrain_relaxation .true.\n')
+            elif fixed_mask[i].any():
+                for axis, fixed in zip('xyz', fixed_mask[i]):
+                    if fixed:
+                        lines.append(f'    constrain_relaxation {axis}\n')
         # field
         if fieldtype == 'field_on':
             lines += [f'homogeneous_field 0.0 0.0 {self.efield:.16f}\n']
