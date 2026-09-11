@@ -1,6 +1,7 @@
 %nproc=24
 %chk=fepc.chk
-# PBEPBE/6-31G(d) NoSymm freq=raman opt
+%mem=64GB
+# PBEPBE/6-31G(d) NoSymm freq=raman
 
 Title: Created by Jmol version 14.6.4_2016.11.05  2016-11-10 03:30
 
