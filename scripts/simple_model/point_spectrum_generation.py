@@ -8,6 +8,8 @@ Arguments:
     save_path: str -- the path to the directory to save the image data.
     log_file: str -- the name of the log file (Not the whole path).
     rotation_angles: list -- list of rotation angles of the molecule. Default is [0].
+    tip_width: list of 3 floats -- width of the tip in x, y, z (unit: Angstrom). Default is [5, 5, 5].
+    resolution: list of 2 ints -- frame resolution as X_COUNT Y_COUNT. Default is [256, 256].
 """
 # python point_spectrum_generation.py /scratch/phys/sin/sethih1/data_files/all_group /scratch/phys/sin/sethih1/data_files/all_group_images_freq /scratch/phys/sin/sethih1/data_files/all_group_freq_log
 
@@ -43,13 +45,13 @@ E_TYPE = 2
 PEAK_WIDTH = 0.1  # Default 5, in matlab 7
 LAMBDA_0 = 532  # Default 532
 T = 1e-6  # Temperature, K
-TIP_WIDTH = np.array([1, 1, 1])*5
 PHI, THETA, PSI = 0, 0, 0
 # PHI, THETA = 0, 0
-#X_COUNT, Y_COUNT = 64, 64  # Frame resolution
-X_COUNT, Y_COUNT = 256, 256  # Frame resolution
-#X_COUNT, Y_COUNT = 28, 28
-X_WIDTH, Y_WIDTH = 28, 28  # Frame width and height, A
+X_WIDTH, Y_WIDTH = 20, 20  # Frame width and height, A
+
+# Defaults, used when --tip_width / --resolution are not provided on the command line
+DEFAULT_TIP_WIDTH = np.array([1, 1, 1]) * 5
+DEFAULT_X_COUNT, DEFAULT_Y_COUNT = 256, 256
 
 # Check if slurm CPUs are detected
 if 'SLURM_CPUS_PER_TASK' in os.environ:
@@ -58,7 +60,7 @@ else:
     cpus = os.cpu_count()
 
 
-def generate_ters_data(filename, molecule_rotation, plot_spectrum):
+def generate_ters_data(filename, molecule_rotation, plot_spectrum, tip_width=None, resolution=None):
     """
     Calculates the Raman spectra for a grid on top of a molecule with desired resolution.
 
@@ -66,6 +68,8 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
         filename: Path object -- the .fchk file that contains molecule data.
         molecule_rotation: list -- list of angles that defines the rotation of the molecule. (unit: degrees)
         plot_spectrum: list -- Lis of frequencies where spectrum is calculated. If None, the spectrum is calculated at normal modes of the molecule.
+        tip_width: array-like of 3 floats -- width of the tip in x, y, z (unit: Angstrom). Defaults to DEFAULT_TIP_WIDTH.
+        resolution: tuple of 2 ints -- (x_count, y_count) frame resolution. Defaults to (DEFAULT_X_COUNT, DEFAULT_Y_COUNT).
 
     Returns:
         atom_pos_rotated: np.ndarray -- positions of atoms in the molecule with wanted rotation applied on them (unit: Angstrom)
@@ -76,6 +80,9 @@ def generate_ters_data(filename, molecule_rotation, plot_spectrum):
         filename: str -- the .fchk file that contains molecule data.
     """
     PHI, THETA, PSI = molecule_rotation
+
+    TIP_WIDTH = np.asarray(tip_width) if tip_width is not None else DEFAULT_TIP_WIDTH
+    X_COUNT, Y_COUNT = resolution if resolution is not None else (DEFAULT_X_COUNT, DEFAULT_Y_COUNT)
 
     result = load_molecule(filename, PHI, THETA, PSI)
     if result is None: return None
@@ -147,7 +154,7 @@ def save_ters_data(atom_pos, atomic_numbers, x_pos, y_pos, frequencies, spectrum
 
 
 def process_fchk_file(args):
-    file_path, save_path, log_file, molecule_rotation, plot_spectrum = args
+    file_path, save_path, log_file, molecule_rotation, plot_spectrum, tip_width, resolution = args
     """
     Generates data to be able to create a simulated TERS image for a molecule and saves the 
     data in a file.
@@ -167,7 +174,7 @@ def process_fchk_file(args):
             #_, R = rotation(normal, X)
             #current_rotation = rotation_to_zyz_euler(R)
 
-        image_data = generate_ters_data(file_path, current_rotation, plot_spectrum)
+        image_data = generate_ters_data(file_path, current_rotation, plot_spectrum, tip_width, resolution)
     else:
         image_data = None
         log_status(f"File {file_path.name} does not exist.")
@@ -181,7 +188,7 @@ def process_fchk_file(args):
     log_status(f"Finished processing file: {file_path.name}")
 
 
-def generate_data_from_fchk_files(directory_path, save_path, log_file, molecule_rotation, plot_spectrum):
+def generate_data_from_fchk_files(directory_path, save_path, log_file, molecule_rotation, plot_spectrum, tip_width=None, resolution=None):
     """
     Generating and saving image data for a group of molecules.
     """
@@ -192,7 +199,7 @@ def generate_data_from_fchk_files(directory_path, save_path, log_file, molecule_
     t_0 = time.time()
     with multiprocessing.Pool(processes=cpus) as pool:
         with tqdm(total=num_files) as pbar:
-            for _ in pool.imap_unordered(process_fchk_file, [(file_path, save_path, log_file, molecule_rotation, plot_spectrum) for file_path in file_paths]):
+            for _ in pool.imap_unordered(process_fchk_file, [(file_path, save_path, log_file, molecule_rotation, plot_spectrum, tip_width, resolution) for file_path in file_paths]):
                 pbar.update(1)
 
     t_1 = time.time()
@@ -253,6 +260,22 @@ if __name__ == "__main__":
         help="Euler angles in degrees. If omitted, PCA-based auto-rotation is used.",
     )
     parser.add_argument("--plot_spectrum", type=float, nargs='+', default=None, help="List of wavenumbers to plot the spectrum. Using default value calculates spectrum at normal modes of the molecule.")
+    parser.add_argument(
+        "--tip_width",
+        type=float,
+        nargs=3,
+        default=None,
+        metavar=("WX", "WY", "WZ"),
+        help="Width of the tip in x, y, z (unit: Angstrom). Default is [5, 5, 5].",
+    )
+    parser.add_argument(
+        "--resolution",
+        type=int,
+        nargs=2,
+        default=None,
+        metavar=("X_COUNT", "Y_COUNT"),
+        help="Frame resolution as X_COUNT Y_COUNT. Default is 256 256.",
+    )
     args = parser.parse_args()
 
     # Setup logging
@@ -266,6 +289,8 @@ if __name__ == "__main__":
 
     molecule_rotation = args.molecule_rotation
     plot_spectrum = args.plot_spectrum
+    tip_width = np.array(args.tip_width) if args.tip_width is not None else None
+    resolution = tuple(args.resolution) if args.resolution is not None else None
 
     # Generating the data for molecules
-    generate_data_from_fchk_files(directory_path, save_path, log_file, molecule_rotation, plot_spectrum)
+    generate_data_from_fchk_files(directory_path, save_path, log_file, molecule_rotation, plot_spectrum, tip_width, resolution)

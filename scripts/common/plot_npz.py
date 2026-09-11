@@ -21,6 +21,7 @@ parser.add_argument("--modes", type=int, nargs='+', default=None)
 parser.add_argument("--molecule", action="store_true")
 parser.add_argument("--interpolate", action="store_true")
 parser.add_argument("--savepng", action="store_true")
+parser.add_argument("--index_offset", type=int, default=0)
 
 args = parser.parse_args()
 
@@ -142,7 +143,8 @@ if args.molecule:
 # --------------------
 # labels
 # --------------------
-mode_str = "+".join(str(m) for m in all_modes)
+offset = args.index_offset
+mode_str = "+".join(str(m+offset) for m in all_modes)
 freq_str = ", ".join(f"{freq_of(m):.1f}" for m in all_modes)
 
 ax.set_title(f"TERS image modes {mode_str} ({freq_str} cm⁻¹)")
